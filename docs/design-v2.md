@@ -23,13 +23,32 @@
 - **Self-sustaining system:** Use these starter proteins to build more/better proteins
 - **Emergent complexity:** The "machines" in your factory are the products of your factory
 
+**Energy System: ATP as Currency**
+- **ATP (Adenosine Triphosphate):** Universal energy currency for active processes
+- **Active processes require ATP:**
+  - **Transcription:** Each nucleotide added to RNA costs ATP (1+ per step)
+  - **Translation:** Each amino acid added to protein costs ATP (1+ per step)
+  - Other energy-requiring reactions
+- **Passive processes are free:**
+  - **Binding:** Shape-complementarity attraction (no ATP)
+  - **Folding:** Thermodynamic process driven by amino acid properties (no ATP)
+  - **Brownian motion:** Natural random movement (no ATP)
+  - **Heat dissipation:** Passive diffusion (no ATP)
+- **ATP management becomes resource constraint:**
+  - Must produce/acquire ATP to sustain active processes
+  - Running out of ATP halts transcription/translation
+  - Like power in Factorio or oxygen in ONI
+  - Creates optimization challenge: energy efficiency vs. throughput
+
 **Starting State:**
 - Player begins with:
   - 1+ RNA Polymerase proteins (enables DNA → RNA)
   - 1+ Ribosome proteins (enables RNA → Protein)
   - Some initial DNA sequences (genetic "blueprints")
+  - **Initial ATP supply** (or ATP generation mechanism)
 - Goal: Use these to bootstrap production of new proteins with new functions
 - New proteins can improve or replace the starter proteins
+- Must manage ATP production to sustain operations
 
 **Key Inspirations:**
 - **Shapez**: Simple building blocks → complex emergent systems
@@ -274,6 +293,15 @@ Result: A simple transcription factor that binds AT-rich DNA and bends it
 - When does a machine "grab" a floating molecule?
 
 ### Questions to Resolve (Mechanics-Focused)
+
+**Energy System (ATP):**
+1. **ATP production:** How do players generate ATP? Starting supply? ATP synthase proteins?
+2. **ATP consumption rates:** Exact cost per transcription/translation step? Variable costs?
+3. **ATP storage:** Is there a limit? Can ATP be stockpiled?
+4. **ATP visualization:** How to show ATP levels, consumption, production rates?
+5. **Energy crisis:** What happens when ATP runs out? Gradual slowdown? Complete halt?
+6. **Energy efficiency:** Can players build more efficient polymerases/ribosomes that use less ATP?
+7. **Energy optimization:** Tradeoff between speed (high ATP use) and efficiency (low ATP use)?
 
 **Molecular Physics:**
 1. **Brownian motion speed:** How fast should molecules drift? Balance between dynamic and playable
