@@ -30,8 +30,8 @@
 
         // Hex grid parameters
         const hexSize = 40;
-        const hexWidth = hexSize * 2;
-        const hexHeight = Math.sqrt(3) * hexSize;
+        const hexWidth = hexSize * Math.sqrt(3); // Width of a hex (point to point horizontally)
+        const hexHeight = hexSize * 2; // Height of a hex (point to point vertically)
 
         // Nucleotide colors
         const colors = {
@@ -100,9 +100,9 @@
 
         // Calculate hex positions for proper hex lattice (offset rows)
         function getHexPosition(col, row) {
-            const xOffset = (row % 2) * (hexWidth * 0.375); // Offset every other row
-            const x = 150 + col * (hexWidth * 0.75) + xOffset;
-            const y = 100 + row * (hexHeight * 0.5); // Half height for proper packing
+            const xOffset = (row % 2) * (hexWidth / 2); // Offset every other row by half hex width
+            const x = 150 + col * hexWidth + xOffset;
+            const y = 100 + row * (hexHeight * 0.75); // Vertical spacing is 3/4 of hex height
             return { x, y };
         }
 
