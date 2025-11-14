@@ -111,21 +111,32 @@
             ctx.fillStyle = '#0f0f1e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw top strand (row 0)
+            // Draw full hex grid background
+            const gridCols = 10;
+            const gridRows = 5;
+            
+            for (let row = 0; row < gridRows; row++) {
+                for (let col = 0; col < gridCols; col++) {
+                    const pos = getHexPosition(col, row);
+                    drawHex(pos.x, pos.y, hexSize, null, '#333333', 1);
+                }
+            }
+
+            // Draw top strand bases (row 0)
             topStrand.forEach((base, i) => {
                 const pos = getHexPosition(i, 0);
                 drawHex(pos.x, pos.y, hexSize, colors[base], '#ffffff', 2);
                 drawText(pos.x, pos.y, base, '#ffffff', '20px');
             });
 
-            // Draw middle row linkages (row 1)
-            topStrand.forEach((base, i) => {
-                const pos = getHexPosition(i, 1);
-                drawHex(pos.x, pos.y, hexSize, '#1a1a2e', '#666666', 1);
+            // Draw middle row linkages (row 1) - n-1 Xs for n base pairs
+            // For 4 bases, we need 3 Xs between positions 0-1, 1-2, 2-3
+            for (let i = 0; i < topStrand.length - 1; i++) {
+                const pos = getHexPosition(i + 0.5, 1); // Position between hexes
                 drawXLinkage(pos.x, pos.y, hexSize * 0.4);
-            });
+            }
 
-            // Draw bottom strand (row 2)
+            // Draw bottom strand bases (row 2)
             bottomStrand.forEach((base, i) => {
                 const pos = getHexPosition(i, 2);
                 drawHex(pos.x, pos.y, hexSize, colors[base], '#ffffff', 2);
