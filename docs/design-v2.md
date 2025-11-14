@@ -43,13 +43,14 @@ Example RNA strand on hex grid:
 **Visual Representation:**
 ```
 3'-A-C-G-T-5'  (top strand, left to right = 3' to 5')
-   ╳ ╳ ╳ ╳     (middle row: X-shaped linkages)
+    ╳ ╳ ╳      (middle row: X-shaped linkages between base pairs)
 5'-T-G-C-A-3'  (bottom strand, left to right = 5' to 3')
 
 Example with complementary pairing:
 - Top: A-C-G-T (reading 3' → 5')
 - Bottom: T-G-C-A (reading 5' → 3')
 - Base pairing: A-T, C-G, G-C, T-A
+- 3 Xs for 4 base pairs (linkages between adjacent pairs)
 ```
 
 **Critical Details:**
