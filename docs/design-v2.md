@@ -217,42 +217,73 @@ Or with 60° bend:
 **Amino Acid Types (Game Design Properties):**
 
 *Structural amino acids (control folding):*
-1. **Straight (S):** No bending preference, maintains linear structure
-2. **Expand-60 (E60):** Wants to bend at 60°, direction increases moment of inertia (spreads out)
-3. **Compact-60 (C60):** Wants to bend at 60°, direction decreases moment of inertia (tighter)
-4. **Expand-120 (E120):** Wants to bend at 120°, direction increases moment of inertia (spreads out)
-5. **Compact-120 (C120):** Wants to bend at 120°, direction decreases moment of inertia (tighter)
+1. **Straight (S):** 
+   - No bending preference, maintains linear structure
+
+2. **Expand-60 (E60):** 
+   - Wants to bend at 60°
+   - Direction increases moment of inertia (spreads out)
+
+3. **Compact-60 (C60):** 
+   - Wants to bend at 60°
+   - Direction decreases moment of inertia (tighter)
+
+4. **Expand-120 (E120):** 
+   - Wants to bend at 120°
+   - Direction increases moment of inertia (spreads out)
+
+5. **Compact-120 (C120):** 
+   - Wants to bend at 120°
+   - Direction decreases moment of inertia (tighter)
 
 *DNA/RNA-binding amino acids (sequence recognition):*
-6. **Bind-A (BA):** Straight line, wants to bond to A nucleotide in DNA/RNA
-7. **Bind-C (BC):** Straight line, wants to bond to C nucleotide in DNA/RNA
-8. **Bind-G (BG):** Straight line, wants to bond to G nucleotide in DNA/RNA
-9. **Bind-T (BT):** Straight line, wants to bond to T nucleotide in DNA
-10. **Bind-U (BU):** Straight line, wants to bond to U nucleotide in RNA
+6. **Bind-A (BA):** 
+   - Straight line
+   - Wants to bond to A nucleotide in DNA/RNA
+
+7. **Bind-C (BC):** 
+   - Straight line
+   - Wants to bond to C nucleotide in DNA/RNA
+
+8. **Bind-G (BG):** 
+   - Straight line
+   - Wants to bond to G nucleotide in DNA/RNA
+
+9. **Bind-T (BT):** 
+   - Straight line
+   - Wants to bond to T nucleotide in DNA
+
+10. **Bind-U (BU):** 
+    - Straight line
+    - Wants to bond to U nucleotide in RNA
 
 *Mechanical amino acids (manipulation):*
-11. **Curl (CRL):** After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it (enables DNA/RNA manipulation during transcription/translation)
+11. **Curl (CRL):** 
+    - After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it
+    - Enables DNA/RNA manipulation during transcription/translation
 
 *Catalytic amino acids (transcription & translation):*
-12. **RNA-Polymerase-Function (RPF):** Catalyzes RNA synthesis during transcription (DNA → RNA)
-    - **Must be bound to function** (positioned by protein fold)
-    - **Adjacent to DNA codon(s):** Reads template strand
-    - **No RNA codons adjacent:** Only adds RNA when position is clear
-    - **Action:** Places new RNA codon in first open hex location clockwise from last DNA codon
-    - **Complementarity:** New RNA codon is complementary to DNA codon(s)
+12. **RNA-Polymerase-Function (RPF):** 
+    - Catalyzes RNA synthesis during transcription (DNA → RNA)
+    - Must be bound to function (positioned by protein fold)
+    - Adjacent to DNA codon(s): Reads template strand
+    - No RNA codons adjacent: Only adds RNA when position is clear
+    - Action: Places new RNA codon in first open hex location clockwise from last DNA codon
+    - Complementarity: New RNA codon is complementary to DNA codon(s)
       - If multiple DNA codons adjacent, matches at least one
-      - **Best practice:** Position RPF next to exactly one DNA codon for specificity
-    - **Chain extension:** If existing RNA codon immediately before open location, new codon attaches to it (continues chain)
-    - **Consumes ATP** per nucleotide added
+      - Best practice: Position RPF next to exactly one DNA codon for specificity
+    - Chain extension: If existing RNA codon immediately before open location, new codon attaches to it (continues chain)
+    - Consumes ATP per nucleotide added
 
-13. **Peptide-Bond-Former (PBF):** Catalyzes protein synthesis during translation (RNA → Protein)
-    - **Must be bound to function** (positioned by protein fold)
-    - **Adjacent to RNA codon(s):** Reads mRNA sequence
-    - **Other side adjacent to nothing OR one hex away from growing protein chain**
-    - **Action:** Adds amino acid corresponding to RNA codon to the protein chain
-    - **Codon reading:** Translates RNA triplets into amino acids (genetic code)
-    - **Chain extension:** New amino acid attaches to growing protein chain
-    - **Consumes ATP** per amino acid added
+13. **Peptide-Bond-Former (PBF):** 
+    - Catalyzes protein synthesis during translation (RNA → Protein)
+    - Must be bound to function (positioned by protein fold)
+    - Adjacent to RNA codon(s): Reads mRNA sequence
+    - Other side adjacent to nothing OR one hex away from growing protein chain
+    - Action: Adds amino acid corresponding to RNA codon to the protein chain
+    - Codon reading: Translates RNA triplets into amino acids (genetic code)
+    - Chain extension: New amino acid attaches to growing protein chain
+    - Consumes ATP per amino acid added
     - This is the core catalytic site of the ribosome
 
 **Folding Mechanics:**
