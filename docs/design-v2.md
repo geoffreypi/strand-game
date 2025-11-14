@@ -10,13 +10,24 @@
 - Players discover their own solutions and optimizations
 - Open-ended goals rather than prescribed solutions
 
+**The Meta-Loop: Proteins ARE the Machines**
+- **Central concept:** The proteins produced by translation fold into specific shapes
+- **These folded proteins become the functional machines** that enable:
+  - Transcription (RNA polymerase)
+  - Translation (ribosomes)
+  - Modifications (enzymes, chaperones)
+  - All other biological processes
+- **Bootstrap problem:** How do you make the first proteins without proteins?
+- **Self-sustaining system:** Build proteins that build better proteins
+- **Emergent complexity:** The "machines" in your factory are the products of your factory
+
 **Key Inspirations:**
 - **Shapez**: Simple building blocks → complex emergent systems
-- **Factorio**: Logistics, throughput optimization, scaling production
+- **Factorio**: Logistics, throughput optimization, scaling production, **recursive production chains**
 - **Opus Magnum**: Spatial programming, elegant mechanical solutions
 
 **Design Approach:**
-1. Build solid core mechanics (molecular motion, machine interactions)
+1. Build solid core mechanics (molecular motion, protein folding, mechanical interactions)
 2. Provide tools and constraints
 3. Let players experiment and optimize
 4. Challenges arise from the system itself, not artificial puzzle constraints
@@ -113,7 +124,9 @@ Or with 60° bend:
 - Must remain on hex grid
 - Directional labels: 5' and 3' at ends
 
-#### 5. Protein Structure
+#### 5. Protein Structure & Folding
+
+**Linear Structure (unfolded):**
 - Single strand (like RNA)
 - Sequence of amino acids (not nucleotides)
 - Each amino acid occupies one hex
@@ -121,29 +134,40 @@ Or with 60° bend:
 - Different visual representation per amino acid type
 - Directional labels: N-terminus and C-terminus at ends
 
+**Folding Mechanics:**
+- Proteins fold into specific 2D shapes based on amino acid sequence
+- **No self-overlap allowed** (2D constraint)
+- Folded shape determines protein function
+- Different folds = different mechanical properties
+- Shape recognition: proteins interact based on complementary shapes
+
+**Functional Proteins (Folded):**
+- **Enzymes:** Catalyze specific reactions (e.g., join molecules, split molecules)
+- **RNA Polymerase:** Enables transcription (DNA → RNA)
+- **Ribosomes:** Enables translation (RNA → Protein)
+- **Chaperones:** Assist in folding other proteins
+- **Modifiers:** Add/remove chemical groups (phosphorylation, etc.)
+
 **Visual Representation:**
 ```
-N-Gly-Ala-Val-Leu-C  (straight segment)
+Unfolded:
+N-Gly-Ala-Val-Leu-Ile-C  (straight segment)
 
-With 60° bend:
-N-Gly-Ala-Val
-            \
-             Leu
-              \
-               Ile-C
+Folded (example):
+    Gly-Ala
+   /       \
+  N         Val
+             \
+            Leu-Ile-C
 
-With 120° bend:
-N-Gly-Ala-Val
-           /
-        Leu
-         \
-          Ile-C
+Shape determines function!
 ```
 
 **Constraints:**
 - Single continuous chain
 - Both 60° and 120° turns allowed (unlike RNA which only allows 60°)
 - Must remain on hex grid
+- **Cannot self-overlap** (2D game constraint)
 - Greater structural flexibility than RNA/DNA
 
 ### Technical Implementation Notes
@@ -171,27 +195,34 @@ N-Gly-Ala-Val
 2. **Collision behavior:** What happens when molecules bump into each other?
 3. **Molecule spawning:** Continuous flow? Player-controlled? Resource management?
 
-**Machine Mechanics:**
-1. **Interaction range:** How do machines detect/grab molecules?
-2. **Locking vs. flowing:** Do machines hold molecules still, or do they keep drifting?
-3. **Machine types needed:** What minimal set of machines creates interesting possibilities?
-   - Anchors (stop motion)?
-   - Guides/rails (direct motion)?
-   - Processors (transform molecules)?
-   - Splitters (separate DNA strands)?
-   - Joiners (combine molecules)?
+**Protein Folding:**
+1. **Folding mechanism:** Automatic based on sequence? Player-controlled? Energy minimization?
+2. **Folding rules:** What determines which amino acid sequences fold into which shapes?
+3. **No self-overlap:** How do we enforce and visualize this constraint?
+4. **Stability:** Can proteins unfold? Do they need to maintain shape?
+5. **Shape recognition:** How do proteins recognize and interact with complementary shapes?
+
+**Protein-as-Machine Mechanics:**
+1. **Initial bootstrap:** What machines does the player start with? Pre-made proteins? Simple manual tools?
+2. **Interaction range:** How do folded proteins detect and act on molecules?
+3. **Catalysis:** How do enzyme proteins speed up or enable reactions?
+4. **Specificity:** How do we ensure proteins only interact with correct targets?
+5. **Degradation:** Do proteins wear out? Need to be replaced?
 
 **Transcription/Translation Mechanics:**
-1. **Strand separation:** How does DNA unzip during transcription?
-2. **Complementary pairing:** Automatic or player-controlled?
-3. **Directional constraints:** How do 3'→5' / 5'→3' directions affect mechanics?
-4. **Codon reading:** How does ribosome process mRNA? Real genetic code or simplified?
+1. **RNA Polymerase (protein):** How does it mechanically unzip DNA and produce RNA?
+2. **Ribosome (protein complex):** How does it read mRNA codons and produce proteins?
+3. **Strand separation:** How does DNA unzip during transcription?
+4. **Complementary pairing:** Automatic or requires specific protein catalysis?
+5. **Directional constraints:** How do 3'→5' / 5'→3' directions affect mechanics?
+6. **Codon reading:** Real genetic code or simplified?
 
 **Throughput & Optimization:**
 1. **Multiple molecules:** How many can be in flight simultaneously?
 2. **Timing challenges:** Molecules arriving at different times
 3. **Bottlenecks:** What creates interesting optimization problems?
 4. **Scaling:** How does complexity scale with production requirements?
+5. **Recursive production:** How to build proteins that build better proteins?
 
 ### Next Steps
 
