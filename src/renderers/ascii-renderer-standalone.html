@@ -112,6 +112,18 @@
                 return '<' + n + '>';
             }
             
+            // Get hydrogen bond representation for base pair
+            static getHBondSymbol(top, bottom) {
+                // A-T has 2 hydrogen bonds: "||"
+                // G-C has 3 hydrogen bonds: "|||"
+                if ((top === 'A' && bottom === 'T') || (top === 'T' && bottom === 'A')) {
+                    return '| |';
+                } else if ((top === 'G' && bottom === 'C') || (top === 'C' && bottom === 'G')) {
+                    return '|||';
+                }
+                return '|||'; // default
+            }
+            
             // Render DNA structure
             static renderDNA(topSequence, bottomSequence) {
                 if (topSequence.length !== bottomSequence.length) {
@@ -124,12 +136,13 @@
                 let topBases = topSequence.split('').map(b => this.formatNucleotide(b)).join('-');
                 let topLine = "3'-" + topBases + "-5'";
                 
-                // Build middle line with vertical bars
+                // Build middle line with hydrogen bonds
                 let middleLine = "   ";  // Offset for "3'-"
                 for (let i = 0; i < length; i++) {
-                    middleLine += "|";
+                    let bond = this.getHBondSymbol(topSequence[i], bottomSequence[i]);
+                    middleLine += bond;
                     if (i < length - 1) {
-                        middleLine += "    ";  // 4 spaces (3 for <X> + 1 for -)
+                        middleLine += " ";  // 1 space between bonds
                     }
                 }
                 
@@ -174,9 +187,9 @@
                     
                     let formattedBase = this.formatNucleotide(afterBend[i]);
                     if (i === afterBend.length - 1) {
-                        lines.push(currentIndent + "-" + formattedBase + "-3'");
+                        lines.push(currentIndent + " " + formattedBase + "-3'");
                     } else {
-                        lines.push(currentIndent + "-" + formattedBase);
+                        lines.push(currentIndent + " " + formattedBase);
                         lines.push(currentIndent + "    \\");
                     }
                 }
@@ -186,7 +199,7 @@
             
             // Render protein structure (straight, unfolded)
             static renderProtein(aminoAcidSequence) {
-                // aminoAcidSequence is like "S-E60-BA-RPF-C60"
+                // aminoAcidSequence is like "STR-EX6-BTA-RPF-CP6"
                 return "N-" + aminoAcidSequence + "-C";
             }
             
@@ -228,13 +241,14 @@
                     }
                     
                     if (i === afterBend.length - 1) {
-                        lines.push(currentIndent + "-" + afterBend[i] + "-C");
+                        lines.push(currentIndent + " " + afterBend[i] + "-C");
                     } else {
-                        lines.push(currentIndent + "-" + afterBend[i]);
+                        lines.push(currentIndent + " " + afterBend[i]);
+                        let slashIndent = currentIndent + " " + " ".repeat(afterBend[i].length);
                         if (bendAngle === 60) {
-                            lines.push(currentIndent + " " + " ".repeat(afterBend[i].length) + "\\");
+                            lines.push(slashIndent + "\\");
                         } else {
-                            lines.push(currentIndent + " " + " ".repeat(afterBend[i].length) + "/");
+                            lines.push(slashIndent + "/");
                         }
                     }
                 }
