@@ -17,9 +17,19 @@
   - Translation (ribosomes)
   - Modifications (enzymes, chaperones)
   - All other biological processes
-- **Bootstrap problem:** How do you make the first proteins without proteins?
-- **Self-sustaining system:** Build proteins that build better proteins
+- **Bootstrap solution:** Players start with two essential proteins:
+  1. **RNA Polymerase (transcription machine):** Locks onto DNA, transcribes it into RNA
+  2. **Ribosome (translation machine):** Takes any RNA sequence, translates it into amino acid sequence/protein
+- **Self-sustaining system:** Use these starter proteins to build more/better proteins
 - **Emergent complexity:** The "machines" in your factory are the products of your factory
+
+**Starting State:**
+- Player begins with:
+  - 1+ RNA Polymerase proteins (enables DNA → RNA)
+  - 1+ Ribosome proteins (enables RNA → Protein)
+  - Some initial DNA sequences (genetic "blueprints")
+- Goal: Use these to bootstrap production of new proteins with new functions
+- New proteins can improve or replace the starter proteins
 
 **Key Inspirations:**
 - **Shapez**: Simple building blocks → complex emergent systems
@@ -203,11 +213,11 @@ Shape determines function!
 5. **Shape recognition:** How do proteins recognize and interact with complementary shapes?
 
 **Protein-as-Machine Mechanics:**
-1. **Initial bootstrap:** What machines does the player start with? Pre-made proteins? Simple manual tools?
-2. **Interaction range:** How do folded proteins detect and act on molecules?
-3. **Catalysis:** How do enzyme proteins speed up or enable reactions?
-4. **Specificity:** How do we ensure proteins only interact with correct targets?
-5. **Degradation:** Do proteins wear out? Need to be replaced?
+1. **Interaction range:** How do folded proteins detect and act on molecules?
+2. **Catalysis:** How do enzyme proteins speed up or enable reactions?
+3. **Specificity:** How do we ensure proteins only interact with correct targets?
+4. **Degradation:** Do proteins wear out? Need to be replaced?
+5. **Positioning:** Can players manually position proteins, or do they drift with Brownian motion too?
 
 **Transcription/Translation Mechanics:**
 1. **RNA Polymerase (protein):** How does it mechanically unzip DNA and produce RNA?
