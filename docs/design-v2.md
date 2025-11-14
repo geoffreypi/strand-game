@@ -237,6 +237,7 @@ Or with 60° bend:
    - Direction decreases moment of inertia (tighter)
 
 *DNA/RNA-binding amino acids (sequence recognition):*
+
 6. **Bind-A (BA):** 
    - Straight line
    - Wants to bond to A nucleotide in DNA/RNA
@@ -258,11 +259,13 @@ Or with 60° bend:
     - Wants to bond to U nucleotide in RNA
 
 *Mechanical amino acids (manipulation):*
+
 11. **Curl (CRL):** 
     - After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it
     - Enables DNA/RNA manipulation during transcription/translation
 
 *Catalytic amino acids (transcription & translation):*
+
 12. **RNA-Polymerase-Function (RPF):** 
     - Catalyzes RNA synthesis during transcription (DNA → RNA)
     - Must be bound to function (positioned by protein fold)
