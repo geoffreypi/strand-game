@@ -98,10 +98,11 @@
             ctx.stroke();
         }
 
-        // Calculate hex positions for horizontal arrangement
+        // Calculate hex positions for proper hex lattice (offset rows)
         function getHexPosition(col, row) {
-            const x = 150 + col * (hexWidth * 0.75);
-            const y = 100 + row * hexHeight;
+            const xOffset = (row % 2) * (hexWidth * 0.375); // Offset every other row
+            const x = 150 + col * (hexWidth * 0.75) + xOffset;
+            const y = 100 + row * (hexHeight * 0.5); // Half height for proper packing
             return { x, y };
         }
 
@@ -112,8 +113,8 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Draw full hex grid background
-            const gridCols = 10;
-            const gridRows = 5;
+            const gridCols = 12;
+            const gridRows = 8;
             
             for (let row = 0; row < gridRows; row++) {
                 for (let col = 0; col < gridCols; col++) {
@@ -129,10 +130,9 @@
                 drawText(pos.x, pos.y, base, '#ffffff', '20px');
             });
 
-            // Draw middle row linkages (row 1) - n-1 Xs for n base pairs
-            // For 4 bases, we need 3 Xs between positions 0-1, 1-2, 2-3
+            // Draw middle row linkages (row 1) - positioned in the hex centers
             for (let i = 0; i < topStrand.length - 1; i++) {
-                const pos = getHexPosition(i + 0.5, 1); // Position between hexes
+                const pos = getHexPosition(i, 1);
                 drawXLinkage(pos.x, pos.y, hexSize * 0.4);
             }
 
