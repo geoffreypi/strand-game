@@ -77,12 +77,12 @@ Example with complementary pairing:
 
 **Visual Representation:**
 ```
-5'ACGUA3'  (straight segment)
+5'-A-C-G-U-A-3'  (straight segment)
 
 Or with 60° bend:
-5'ACG
-    U
-    A3'
+5'-A-C-G
+      U
+      A-3'
 ```
 
 **Constraints:**
