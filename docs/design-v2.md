@@ -189,38 +189,63 @@ Or with 60° bend:
 **Linear Structure (unfolded):**
 - Single strand (like RNA)
 - Sequence of amino acids (not nucleotides)
+- **Amino acids added linearly by ribosome** (straight chain initially)
+- **Folding begins after leaving ribosome**
 - Each amino acid occupies one hex
-- **Can bend at both 60° AND 120° angles** (more flexible than RNA)
 - Different visual representation per amino acid type
 - Directional labels: N-terminus and C-terminus at ends
 
+**Amino Acid Types (Game Design Properties):**
+
+*Structural amino acids (control folding):*
+1. **Straight (S):** No bending preference, maintains linear structure
+2. **Expand-60 (E60):** Wants to bend at 60°, direction increases moment of inertia (spreads out)
+3. **Compact-60 (C60):** Wants to bend at 60°, direction decreases moment of inertia (tighter)
+4. **Expand-120 (E120):** Wants to bend at 120°, direction increases moment of inertia (spreads out)
+5. **Compact-120 (C120):** Wants to bend at 120°, direction decreases moment of inertia (tighter)
+
+*DNA-binding amino acids (recognition):*
+6. **Bind-A (BA):** Straight line, wants to bond to A nucleotide in DNA
+7. **Bind-C (BC):** Straight line, wants to bond to C nucleotide in DNA
+8. **Bind-G (BG):** Straight line, wants to bond to G nucleotide in DNA
+9. **Bind-T (BT):** Straight line, wants to bond to T nucleotide in DNA
+
+*Mechanical amino acids (manipulation):*
+10. **Curl (CRL):** After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it (enables DNA/RNA manipulation during transcription/translation)
+
 **Folding Mechanics:**
-- Proteins fold into specific 2D shapes based on amino acid sequence
-- **No self-overlap allowed** (2D constraint)
+- Proteins fold based on amino acid sequence "preferences"
+- Each amino acid type exerts forces/torques on the chain
+- **No self-overlap allowed** (2D constraint enforced during folding)
+- Folding is deterministic based on sequence
+- Moment of inertia direction determines expand vs. compact behavior
+- Multiple competing forces resolve into stable fold
 - Folded shape determines protein function
-- Different folds = different mechanical properties
-- Shape recognition: proteins interact based on complementary shapes
 
 **Functional Proteins (Folded):**
 - **Enzymes:** Catalyze specific reactions (e.g., join molecules, split molecules)
-- **RNA Polymerase:** Enables transcription (DNA → RNA)
-- **Ribosomes:** Enables translation (RNA → Protein)
+- **RNA Polymerase:** DNA-binding amino acids recognize promoter sequences, curl amino acids manipulate DNA during transcription
+- **Ribosomes:** Complex fold that grabs mRNA and outputs linear protein chains
+- **Heat shuttles:** Conformational switching between two stable states
 - **Chaperones:** Assist in folding other proteins
 - **Modifiers:** Add/remove chemical groups (phosphorylation, etc.)
 
-**Visual Representation:**
+**Example Protein Design:**
 ```
-Unfolded:
-N-Gly-Ala-Val-Leu-Ile-C  (straight segment)
+N-terminus
+|
+S - S - BA - BT - CRL - E60 - E60 - S
+|
+C-terminus
 
-Folded (example):
-    Gly-Ala
-   /       \
-  N         Val
-             \
-            Leu-Ile-C
+This protein would:
+- Start straight (S-S)
+- Have DNA binding sites (BA-BT) that recognize AT sequence
+- Have curl mechanism (CRL) to bend DNA
+- Expand outward (E60-E60) to create binding pocket
+- End straight (S)
 
-Shape determines function!
+Result: A simple transcription factor that binds AT-rich DNA and bends it
 ```
 
 **Constraints:**
@@ -228,7 +253,7 @@ Shape determines function!
 - Both 60° and 120° turns allowed (unlike RNA which only allows 60°)
 - Must remain on hex grid
 - **Cannot self-overlap** (2D game constraint)
-- Greater structural flexibility than RNA/DNA
+- Folding driven by amino acid properties
 
 ### Technical Implementation Notes
 
@@ -279,11 +304,17 @@ Shape determines function!
 10. **Visual feedback:** How to show temperature, heat capacity, conformational states?
 
 **Protein Folding:**
-1. **Folding mechanism:** Automatic based on sequence? Player-controlled? Energy minimization?
-2. **Folding rules:** What determines which amino acid sequences fold into which shapes?
-3. **No self-overlap:** How do we enforce and visualize this constraint?
-4. **Stability:** Can proteins unfold? Do they need to maintain shape?
-5. **Shape recognition:** How do proteins recognize and interact with complementary shapes?
+1. **Folding simulation:** How do competing forces from different amino acids resolve? Physics-based? Energy minimization?
+2. **Folding speed:** Does folding happen instantly, or animate over time?
+3. **Moment of inertia calculation:** How do we compute this for determining expand vs. compact direction?
+4. **Force strength:** How strong is each amino acid's preference? Do they have different strengths?
+5. **Conflict resolution:** What if amino acids want contradictory bends? (e.g., E60 next to C60)
+6. **No self-overlap:** How do we enforce this during folding? Block invalid folds? Force resolution?
+7. **Stability:** Are folds permanent once formed? Can proteins refold? Unfold under stress?
+8. **Visual feedback:** How do we show folding in progress, forces, conflicts?
+9. **Player control:** Can players manually adjust folds, or is it purely deterministic?
+10. **DNA binding:** When multiple Bind-X amino acids exist, how do they collectively recognize sequences?
+11. **Curl mechanics:** How much does CRL bend DNA/RNA? Fixed angle or variable?
 
 **Protein-as-Machine Mechanics:**
 1. **Interaction range:** How do folded proteins detect and act on molecules?
