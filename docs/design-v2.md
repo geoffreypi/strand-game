@@ -223,20 +223,36 @@ Or with 60° bend:
 4. **Expand-120 (E120):** Wants to bend at 120°, direction increases moment of inertia (spreads out)
 5. **Compact-120 (C120):** Wants to bend at 120°, direction decreases moment of inertia (tighter)
 
-*DNA-binding amino acids (recognition):*
-6. **Bind-A (BA):** Straight line, wants to bond to A nucleotide in DNA
-7. **Bind-C (BC):** Straight line, wants to bond to C nucleotide in DNA
-8. **Bind-G (BG):** Straight line, wants to bond to G nucleotide in DNA
+*DNA/RNA-binding amino acids (sequence recognition):*
+6. **Bind-A (BA):** Straight line, wants to bond to A nucleotide in DNA/RNA
+7. **Bind-C (BC):** Straight line, wants to bond to C nucleotide in DNA/RNA
+8. **Bind-G (BG):** Straight line, wants to bond to G nucleotide in DNA/RNA
 9. **Bind-T (BT):** Straight line, wants to bond to T nucleotide in DNA
+10. **Bind-U (BU):** Straight line, wants to bond to U nucleotide in RNA
 
 *Mechanical amino acids (manipulation):*
-10. **Curl (CRL):** After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it (enables DNA/RNA manipulation during transcription/translation)
+11. **Curl (CRL):** After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it (enables DNA/RNA manipulation during transcription/translation)
 
-*Catalytic amino acids (reactions):*
-11. **Peptide-Bond-Former (PBF):** Catalyzes peptide bond formation during translation
-    - One side must be adjacent to DNA/RNA base (reads codon)
-    - Other side must be adjacent to nothing OR one hex away from growing protein chain
-    - When conditions met: adds corresponding amino acid to chain (consumes ATP)
+*Catalytic amino acids (transcription & translation):*
+12. **RNA-Polymerase-Function (RPF):** Catalyzes RNA synthesis during transcription (DNA → RNA)
+    - **Must be bound to function** (positioned by protein fold)
+    - **Adjacent to DNA codon(s):** Reads template strand
+    - **No RNA codons adjacent:** Only adds RNA when position is clear
+    - **Action:** Places new RNA codon in first open hex location clockwise from last DNA codon
+    - **Complementarity:** New RNA codon is complementary to DNA codon(s)
+      - If multiple DNA codons adjacent, matches at least one
+      - **Best practice:** Position RPF next to exactly one DNA codon for specificity
+    - **Chain extension:** If existing RNA codon immediately before open location, new codon attaches to it (continues chain)
+    - **Consumes ATP** per nucleotide added
+
+13. **Peptide-Bond-Former (PBF):** Catalyzes protein synthesis during translation (RNA → Protein)
+    - **Must be bound to function** (positioned by protein fold)
+    - **Adjacent to RNA codon(s):** Reads mRNA sequence
+    - **Other side adjacent to nothing OR one hex away from growing protein chain**
+    - **Action:** Adds amino acid corresponding to RNA codon to the protein chain
+    - **Codon reading:** Translates RNA triplets into amino acids (genetic code)
+    - **Chain extension:** New amino acid attaches to growing protein chain
+    - **Consumes ATP** per amino acid added
     - This is the core catalytic site of the ribosome
 
 **Folding Mechanics:**
@@ -249,39 +265,46 @@ Or with 60° bend:
 - Folded shape determines protein function
 
 **Functional Proteins (Folded):**
+- **RNA Polymerase:** Contains RPF amino acid(s), DNA-binding amino acids recognize promoter sequences, curl amino acids manipulate DNA during transcription
+- **Ribosome:** Contains PBF amino acid(s), RNA-binding amino acids grab mRNA, complex fold that outputs linear protein chains
 - **Enzymes:** Catalyze specific reactions (e.g., join molecules, split molecules)
-- **RNA Polymerase:** DNA-binding amino acids recognize promoter sequences, curl amino acids manipulate DNA during transcription
-- **Ribosomes:** Complex fold that grabs mRNA and outputs linear protein chains
 - **Heat shuttles:** Conformational switching between two stable states
 - **Chaperones:** Assist in folding other proteins
 - **Modifiers:** Add/remove chemical groups (phosphorylation, etc.)
 
 **Example Protein Design:**
 ```
-N-terminus
-|
-S - S - BA - BT - CRL - E60 - E60 - S
-|
-C-terminus
+Simple transcription factor:
+N - S - S - BA - BT - CRL - E60 - E60 - S - C
 
 This protein would:
 - Start straight (S-S)
 - Have DNA binding sites (BA-BT) that recognize AT sequence
 - Have curl mechanism (CRL) to bend DNA
 - Expand outward (E60-E60) to create binding pocket
-- End straight (S)
+- End with compact turn (C)
 
-Result: A simple transcription factor that binds AT-rich DNA and bends it
+Result: Binds AT-rich DNA and bends it (but doesn't transcribe - no RPF)
+
+RNA Polymerase (simplified example):
+N - E60 - BA - BG - RPF - CRL - BA - BT - S - S - C
+    
+This RNA polymerase would:
+- Expanded structure (E60) to create channel
+- DNA binding sites (BA-BG-BA-BT) to recognize promoter and position template strand
+- RPF catalytic site reads DNA and synthesizes complementary RNA
+- CRL manipulates DNA during transcription
+- Creates RNA strand from DNA template (consumes ATP per nucleotide)
 
 Ribosome (simplified example):
-N - E60 - E60 - PBF - C60 - BA - BA - BA - S - S
+N - E60 - E60 - PBF - C60 - BU - BU - BU - S - S - C
     
 This ribosome would:
 - Create expanded binding channel (E60-E60)
-- Have catalytic site (PBF) that reads mRNA and adds amino acids
-- Have mRNA binding site (BA-BA-BA) to grab and position RNA
+- Have catalytic site (PBF) that reads mRNA codons and adds amino acids
+- Have mRNA binding sites (BU-BU-BU) to grab and position RNA
 - Compact region (C60) to create stable core
-- The PBF sits where it can read codons and extend the growing protein chain
+- The PBF reads codons and extends the growing protein chain (consumes ATP per amino acid)
 ```
 
 **Constraints:**
@@ -358,13 +381,18 @@ This ribosome would:
 7. **Stability:** Are folds permanent once formed? Can proteins refold? Unfold under stress?
 8. **Visual feedback:** How do we show folding in progress, forces, conflicts?
 9. **Player control:** Can players manually adjust folds, or is it purely deterministic?
-10. **DNA binding:** When multiple Bind-X amino acids exist, how do they collectively recognize sequences?
+10. **DNA/RNA binding:** When multiple Bind-X amino acids exist, how do they collectively recognize sequences?
 11. **Curl mechanics:** How much does CRL bend DNA/RNA? Fixed angle or variable?
-12. **PBF catalysis:** 
+12. **RPF transcription mechanics:** 
+    - How does "first open hex location clockwise" work precisely?
+    - What if there are multiple valid positions?
+    - Speed: One nucleotide per cycle? Slower?
+13. **PBF translation mechanics:** 
     - How does PBF "read" adjacent codon to determine which amino acid to add?
     - Codon table: Real genetic code or simplified mapping?
     - Spatial constraints: Exactly one hex away or flexible?
     - Does growing chain need to be fed through specific geometry?
+    - How do multiple adjacent RNA codons get selected?
 
 **Protein-as-Machine Mechanics:**
 1. **Interaction range:** How do folded proteins detect and act on molecules?
