@@ -67,17 +67,30 @@ Example with complementary pairing:
 - Antiparallel orientation always maintained (one strand 5'→3', other 3'→5')
 
 #### 4. RNA Structure
-- Single strand only
+- Single strand only (no double helix)
 - Sequence of A, C, G, U on hex grid
-- Straight segments with 60°/120° turns
-- Can fold back on itself (for later: secondary structure?)
+- Each nucleotide occupies one hex
+- **No cross-links** (unlike DNA)
+- Can bend at **60° angles only** (not 120°)
+- Similar visual style to DNA strands but without the complementary pairing
 
 **Visual Representation:**
 ```
-A --- C --- G --- U
-         \
-          A --- C --- U
+5'ACGUA3'  (straight segment)
+
+Or with 60° bend:
+5'ACG
+    U
+    A3'
 ```
+
+**Constraints:**
+- Single continuous strand
+- No linkage symbols (no double helix partner)
+- 60° turns allowed between adjacent nucleotides
+- 120° turns NOT allowed (would be too sharp/unrealistic)
+- Must remain on hex grid
+- Directional labels: 5' and 3' at ends
 
 #### 5. Protein Structure
 - Single strand (for now - can add folding later)
