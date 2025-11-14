@@ -35,6 +35,7 @@
 - **Shapez**: Simple building blocks → complex emergent systems
 - **Factorio**: Logistics, throughput optimization, scaling production, **recursive production chains**
 - **Opus Magnum**: Spatial programming, elegant mechanical solutions
+- **Oxygen Not Included**: Deep thermodynamic simulation, heat management, cascading system failures
 
 **Design Approach:**
 1. Build solid core mechanics (molecular motion, protein folding, mechanical interactions)
@@ -64,6 +65,17 @@
   - **Faster binding** → **more heat generated** (possibly unwanted side effect)
   - **Faster binding** → **higher error rate** (chance to get stuck in invalid/incorrect configurations)
   - Creates interesting optimization: speed vs. accuracy
+  
+**Thermodynamic System (inspired by Oxygen Not Included):**
+  - **Heat generation:** Molecular processes generate heat
+  - **Heat transfer:** Heat conducts between adjacent molecules/regions
+  - **Temperature effects:**
+    - **Too hot:** Proteins denature (unfold), reactions speed up but error rates spike
+    - **Too cold:** Reactions slow down, Brownian motion decreases
+    - **Optimal range:** Different proteins have different temperature optima
+  - **Heat sinks:** Need to manage and dissipate heat
+  - **Cascading failures:** Hot spot can spread and denature entire protein chains
+  - **Strategic cooling:** Build heat-management proteins, position molecules strategically
 - **Binding lock:** Once two structures successfully bind:
   - No other structures are attracted to either of them
   - Binding is exclusive (prevents multi-binding confusion)
@@ -231,10 +243,17 @@ Shape determines function!
 **Shape-Complementarity System:**
 1. **Shape matching algorithm:** How do we determine if two shapes are complementary?
 2. **Partial matches:** Can shapes be "somewhat" complementary? Gradient of attraction?
-3. **Heat mechanics:** How is heat generated, accumulated, dissipated? What are consequences?
-4. **Error states:** What happens when molecules bind incorrectly? Can they unbind? Require repair?
-5. **Strand pairing:** Can DNA-DNA or RNA-RNA bind via complementary sequences?
-6. **Visual feedback:** How do we show attraction forces, heat, and binding in progress?
+3. **Strand pairing:** Can DNA-DNA or RNA-RNA bind via complementary sequences?
+4. **Visual feedback:** How do we show attraction forces, heat, and binding in progress?
+
+**Thermodynamics (ONI-inspired):**
+1. **Heat generation rates:** How much heat per binding event? Per failed binding?
+2. **Heat capacity:** Do different molecules store heat differently?
+3. **Heat transfer:** Conduction rates between molecules? Does empty space insulate?
+4. **Denaturation:** At what temperature do proteins unfold? Is it reversible?
+5. **Cooling mechanisms:** Active cooling proteins? Passive heat sinks? Heat vents?
+6. **Temperature gradients:** How do hot/cold zones form and spread?
+7. **Error states:** What happens when molecules bind incorrectly? Can they unbind? Require repair?
 
 **Protein Folding:**
 1. **Folding mechanism:** Automatic based on sequence? Player-controlled? Energy minimization?
