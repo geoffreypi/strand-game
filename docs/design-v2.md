@@ -232,6 +232,13 @@ Or with 60° bend:
 *Mechanical amino acids (manipulation):*
 10. **Curl (CRL):** After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it (enables DNA/RNA manipulation during transcription/translation)
 
+*Catalytic amino acids (reactions):*
+11. **Peptide-Bond-Former (PBF):** Catalyzes peptide bond formation during translation
+    - One side must be adjacent to DNA/RNA base (reads codon)
+    - Other side must be adjacent to nothing OR one hex away from growing protein chain
+    - When conditions met: adds corresponding amino acid to chain (consumes ATP)
+    - This is the core catalytic site of the ribosome
+
 **Folding Mechanics:**
 - Proteins fold based on amino acid sequence "preferences"
 - Each amino acid type exerts forces/torques on the chain
@@ -265,6 +272,16 @@ This protein would:
 - End straight (S)
 
 Result: A simple transcription factor that binds AT-rich DNA and bends it
+
+Ribosome (simplified example):
+N - E60 - E60 - PBF - C60 - BA - BA - BA - S - S
+    
+This ribosome would:
+- Create expanded binding channel (E60-E60)
+- Have catalytic site (PBF) that reads mRNA and adds amino acids
+- Have mRNA binding site (BA-BA-BA) to grab and position RNA
+- Compact region (C60) to create stable core
+- The PBF sits where it can read codons and extend the growing protein chain
 ```
 
 **Constraints:**
@@ -343,6 +360,11 @@ Result: A simple transcription factor that binds AT-rich DNA and bends it
 9. **Player control:** Can players manually adjust folds, or is it purely deterministic?
 10. **DNA binding:** When multiple Bind-X amino acids exist, how do they collectively recognize sequences?
 11. **Curl mechanics:** How much does CRL bend DNA/RNA? Fixed angle or variable?
+12. **PBF catalysis:** 
+    - How does PBF "read" adjacent codon to determine which amino acid to add?
+    - Codon table: Real genetic code or simplified mapping?
+    - Spatial constraints: Exactly one hex away or flexible?
+    - Does growing chain need to be fed through specific geometry?
 
 **Protein-as-Machine Mechanics:**
 1. **Interaction range:** How do folded proteins detect and act on molecules?
