@@ -81,10 +81,10 @@ Example with complementary pairing:
 
 Or with 60° bend:
 5'-A-C-G
-       \
-        U
-         \
-          A-3'
+        \
+         U
+          \
+           A-3'
 ```
 
 **Constraints:**
