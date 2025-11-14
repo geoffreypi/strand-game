@@ -96,11 +96,37 @@ Or with 60° bend:
 - Directional labels: 5' and 3' at ends
 
 #### 5. Protein Structure
-- Single strand (for now - can add folding later)
-- Sequence of amino acids
+- Single strand (like RNA)
+- Sequence of amino acids (not nucleotides)
 - Each amino acid occupies one hex
-- 60°/120° turns allowed
+- **Can bend at both 60° AND 120° angles** (more flexible than RNA)
 - Different visual representation per amino acid type
+- Directional labels: N-terminus and C-terminus at ends
+
+**Visual Representation:**
+```
+N-Gly-Ala-Val-Leu-C  (straight segment)
+
+With 60° bend:
+N-Gly-Ala-Val
+            \
+             Leu
+              \
+               Ile-C
+
+With 120° bend:
+N-Gly-Ala-Val
+           /
+        Leu
+         \
+          Ile-C
+```
+
+**Constraints:**
+- Single continuous chain
+- Both 60° and 120° turns allowed (unlike RNA which only allows 60°)
+- Must remain on hex grid
+- Greater structural flexibility than RNA/DNA
 
 ### Technical Implementation Notes
 
