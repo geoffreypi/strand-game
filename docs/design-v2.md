@@ -1,7 +1,25 @@
 # Design Document - Prototype v2
 ## Major Rework: Brownian Motion & Hex-Based Molecules
 
-### Core Concept Changes
+### Core Design Philosophy
+
+**Sandbox Mechanics Over Scripted Puzzles**
+- Inspired by **Shapez**, **Factorio**, and **Opus Magnum**
+- Focus on creating robust, interesting mechanics
+- Let complexity and challenges emerge naturally from the mechanics
+- Players discover their own solutions and optimizations
+- Open-ended goals rather than prescribed solutions
+
+**Key Inspirations:**
+- **Shapez**: Simple building blocks → complex emergent systems
+- **Factorio**: Logistics, throughput optimization, scaling production
+- **Opus Magnum**: Spatial programming, elegant mechanical solutions
+
+**Design Approach:**
+1. Build solid core mechanics (molecular motion, machine interactions)
+2. Provide tools and constraints
+3. Let players experiment and optimize
+4. Challenges arise from the system itself, not artificial puzzle constraints
 
 #### 1. Molecular Movement System
 **Brownian Motion Simulation**
@@ -146,14 +164,34 @@ N-Gly-Ala-Val
 - Hex-aligned hitboxes?
 - When does a machine "grab" a floating molecule?
 
-### Questions to Resolve
+### Questions to Resolve (Mechanics-Focused)
 
-1. **Scale:** How big should molecules be relative to machines?
-2. **Speed:** How fast should Brownian motion be? Too fast = unplayable, too slow = boring
-3. **DNA Bending:** Should DNA double-strand be allowed to bend, or only single strands?
-4. **Molecule Spawning:** Where do input molecules come from? Edge of screen? Specific spawn points?
-5. **Machine Interaction:** Do machines "lock" molecules in place, or do they continue drifting?
-6. **Visual Clarity:** How to make hex structure clear while molecules are rotating/moving?
+**Molecular Physics:**
+1. **Brownian motion speed:** How fast should molecules drift? Balance between dynamic and playable
+2. **Collision behavior:** What happens when molecules bump into each other?
+3. **Molecule spawning:** Continuous flow? Player-controlled? Resource management?
+
+**Machine Mechanics:**
+1. **Interaction range:** How do machines detect/grab molecules?
+2. **Locking vs. flowing:** Do machines hold molecules still, or do they keep drifting?
+3. **Machine types needed:** What minimal set of machines creates interesting possibilities?
+   - Anchors (stop motion)?
+   - Guides/rails (direct motion)?
+   - Processors (transform molecules)?
+   - Splitters (separate DNA strands)?
+   - Joiners (combine molecules)?
+
+**Transcription/Translation Mechanics:**
+1. **Strand separation:** How does DNA unzip during transcription?
+2. **Complementary pairing:** Automatic or player-controlled?
+3. **Directional constraints:** How do 3'→5' / 5'→3' directions affect mechanics?
+4. **Codon reading:** How does ribosome process mRNA? Real genetic code or simplified?
+
+**Throughput & Optimization:**
+1. **Multiple molecules:** How many can be in flight simultaneously?
+2. **Timing challenges:** Molecules arriving at different times
+3. **Bottlenecks:** What creates interesting optimization problems?
+4. **Scaling:** How does complexity scale with production requirements?
 
 ### Next Steps
 
