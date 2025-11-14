@@ -134,7 +134,6 @@ class Molecule {
         this.rotation = 0;
         this.velocity = { vx: 0, vy: 0 };
         this.angularVelocity = 0;
-        this.temperature = 298; // Kelvin (room temp)
         this.bound = false;
         this.boundTo = null;
         this.components = []; // Nucleotides or AminoAcids
@@ -298,17 +297,13 @@ class Protein extends Molecule {
 
 **Global state management:**
 - All molecules in the world
-- ATP pool
-- Temperature map (for heat diffusion)
-- Collision/binding detection grid
+- Collision/binding detection
 
 ```javascript
 class World {
     constructor() {
         this.molecules = [];
-        this.atp = 100; // Starting ATP
         this.time = 0;
-        this.temperatureGrid = new Map(); // HexCoord -> temperature
     }
     
     addMolecule(molecule) {
@@ -326,10 +321,7 @@ class World {
         // Check for binding opportunities
         this.checkBindings();
         
-        // Update heat diffusion
-        this.updateHeat(deltaTime);
-        
-        // Process catalytic reactions
+        // Process catalytic reactions (simplified - no ATP requirement yet)
         this.processCatalysis();
         
         this.time += deltaTime;
@@ -340,14 +332,9 @@ class World {
         // Check shape complementarity between nearby molecules
     }
     
-    updateHeat(deltaTime) {
-        // TODO: Heat diffusion across temperature grid
-    }
-    
     processCatalysis() {
         // TODO: Check all catalytic sites (RPF, PBF)
         // Execute reactions if conditions are met
-        // Consume ATP
     }
 }
 ```
@@ -359,15 +346,17 @@ class World {
 ### Immediate Decisions Needed:
 1. **Folding algorithm:** Physics simulation or rule-based resolution?
 2. **Shape matching:** How to efficiently compute shape complementarity?
-3. **Heat simulation:** Full thermodynamic simulation or simplified model?
-4. **Spatial partitioning:** Quad-tree? Spatial hash? For collision detection?
-5. **Rendering:** Canvas 2D or WebGL for performance?
+3. **Spatial partitioning:** Quad-tree? Spatial hash? For collision detection?
+4. **Rendering:** Canvas 2D or WebGL for performance?
+5. **Binding mechanics:** Force/torque application - how strong? How fast?
 
-### Future Considerations:
+### Future Considerations (defer for now):
+- Temperature/heat simulation
+- ATP energy system
 - Serialization: How to save/load world state?
 - Genetic code: Real codon table or simplified?
 - Performance: How many molecules can we handle simultaneously?
-- UI: How to display molecule properties, temperature, ATP levels?
+- UI: How to display molecule properties
 
 ---
 
