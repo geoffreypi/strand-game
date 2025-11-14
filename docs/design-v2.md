@@ -217,56 +217,52 @@ Or with 60° bend:
 **Amino Acid Types (Game Design Properties):**
 
 *Structural amino acids (control folding):*
-1. **Straight (S):** 
+1. **Straight (STR):** 
    - No bending preference, maintains linear structure
 
-2. **Expand-60 (E60):** 
+2. **Expand-60 (EX6):** 
    - Wants to bend at 60°
    - Direction increases moment of inertia (spreads out)
 
-3. **Compact-60 (C60):** 
+3. **Compact-60 (CP6):** 
    - Wants to bend at 60°
    - Direction decreases moment of inertia (tighter)
 
-4. **Expand-120 (E120):** 
+4. **Expand-120 (E12):** 
    - Wants to bend at 120°
    - Direction increases moment of inertia (spreads out)
 
-5. **Compact-120 (C120):** 
+5. **Compact-120 (C12):** 
    - Wants to bend at 120°
    - Direction decreases moment of inertia (tighter)
 
 *DNA/RNA-binding amino acids (sequence recognition):*
 
-6. **Bind-A (BA):** 
+6. **Bind-A (BTA):** 
    - Straight line
    - Wants to bond to A nucleotide in DNA/RNA
 
-7. **Bind-C (BC):** 
+7. **Bind-C (BTC):** 
    - Straight line
    - Wants to bond to C nucleotide in DNA/RNA
 
-8. **Bind-G (BG):** 
+8. **Bind-G (BTG):** 
    - Straight line
    - Wants to bond to G nucleotide in DNA/RNA
 
-9. **Bind-T (BT):** 
+9. **Bind-T (BTT):** 
    - Straight line
    - Wants to bond to T nucleotide in DNA
 
-10. **Bind-U (BU):** 
-    - Straight line
-    - Wants to bond to U nucleotide in RNA
-
 *Mechanical amino acids (manipulation):*
 
-11. **Curl (CRL):** 
+10. **Curl (CRL):** 
     - After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it
     - Enables DNA/RNA manipulation during transcription/translation
 
 *Catalytic amino acids (transcription & translation):*
 
-12. **RNA-Polymerase-Function (RPF):** 
+11. **RNA-Polymerase-Function (RPF):** 
     - Catalyzes RNA synthesis during transcription (DNA → RNA)
     - Must be bound to function (positioned by protein fold)
     - Adjacent to DNA codon(s): Reads template strand
@@ -278,7 +274,7 @@ Or with 60° bend:
     - Chain extension: If existing RNA codon immediately before open location, new codon attaches to it (continues chain)
     - Consumes ATP per nucleotide added
 
-13. **Peptide-Bond-Former (PBF):** 
+12. **Peptide-Bond-Former (PBF):** 
     - Catalyzes protein synthesis during translation (RNA → Protein)
     - Must be bound to function (positioned by protein fold)
     - Adjacent to RNA codon(s): Reads mRNA sequence
@@ -309,36 +305,36 @@ Or with 60° bend:
 **Example Protein Design:**
 ```
 Simple transcription factor:
-N - S - S - BA - BT - CRL - E60 - E60 - S - C
+N-STR-STR-BTA-BTT-CRL-EX6-EX6-STR-C
 
 This protein would:
-- Start straight (S-S)
-- Have DNA binding sites (BA-BT) that recognize AT sequence
+- Start straight (STR-STR)
+- Have DNA binding sites (BTA-BTT) that recognize AT sequence
 - Have curl mechanism (CRL) to bend DNA
-- Expand outward (E60-E60) to create binding pocket
-- End with compact turn (C)
+- Expand outward (EX6-EX6) to create binding pocket
+- End straight (STR)
 
 Result: Binds AT-rich DNA and bends it (but doesn't transcribe - no RPF)
 
 RNA Polymerase (simplified example):
-N - E60 - BA - BG - RPF - CRL - BA - BT - S - S - C
+N-EX6-BTA-BTG-RPF-CRL-BTA-BTT-STR-STR-C
     
 This RNA polymerase would:
-- Expanded structure (E60) to create channel
-- DNA binding sites (BA-BG-BA-BT) to recognize promoter and position template strand
+- Expanded structure (EX6) to create channel
+- DNA binding sites (BTA-BTG-BTA-BTT) to recognize promoter and position template strand
 - RPF catalytic site reads DNA and synthesizes complementary RNA
 - CRL manipulates DNA during transcription
 - Creates RNA strand from DNA template (consumes ATP per nucleotide)
 
 Ribosome (simplified example):
-N - E60 - E60 - PBF - C60 - BU - BU - BU - S - S - C
+N-EX6-EX6-PBF-CP6-STR-STR-C
     
 This ribosome would:
-- Create expanded binding channel (E60-E60)
+- Create expanded binding channel (EX6-EX6)
 - Have catalytic site (PBF) that reads mRNA codons and adds amino acids
-- Have mRNA binding sites (BU-BU-BU) to grab and position RNA
-- Compact region (C60) to create stable core
+- Compact region (CP6) to create stable core
 - The PBF reads codons and extends the growing protein chain (consumes ATP per amino acid)
+- Note: Removed BU (Bind-U) amino acids since we no longer have that type
 ```
 
 **Constraints:**
