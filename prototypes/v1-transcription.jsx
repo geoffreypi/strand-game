@@ -1,0 +1,360 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Pause, RotateCcw, Trash2 } from 'lucide-react';
+
+// DNA Transcription Puzzle Game - Prototype v1
+// Inspired by Opus Magnum's spatial programming mechanics
+
+const GRID_SIZE = 40;
+const MACHINE_TYPES = {
+  RNA_POLYMERASE: 'rna_polymerase',
+  SPLITTER: 'splitter',
+  CONNECTOR: 'connector'
+};
+
+const NUCLEOTIDES = {
+  A: { color: '#ef4444', complement: 'U' },
+  T: { color: '#3b82f6', complement: 'A' },
+  G: { color: '#10b981', complement: 'C' },
+  C: { color: '#f59e0b', complement: 'G' }
+};
+
+const TranscriptionGame = () => {
+  const [machines, setMachines] = useState([]);
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [molecules, setMolecules] = useState([]);
+  const [cycle, setCycle] = useState(0);
+  const [dnaSequence] = useState(['A', 'T', 'G', 'C', 'T', 'A', 'G']);
+  const [targetRNA] = useState(['U', 'A', 'C', 'G', 'A', 'U', 'C']);
+  const [producedRNA, setProducedRNA] = useState([]);
+  const [stats, setStats] = useState({ cycles: 0, machinesUsed: 0, area: 0 });
+  const canvasRef = useRef(null);
+
+  // Reset simulation
+  const handleReset = () => {
+    setIsRunning(false);
+    setMolecules([]);
+    setCycle(0);
+    setProducedRNA([]);
+    setStats({ cycles: 0, machinesUsed: machines.length, area: calculateArea() });
+  };
+
+  // Clear all machines
+  const handleClear = () => {
+    setMachines([]);
+    handleReset();
+  };
+
+  // Calculate area used (bounding box)
+  const calculateArea = () => {
+    if (machines.length === 0) return 0;
+    const xs = machines.map(m => m.x);
+    const ys = machines.map(m => m.y);
+    const width = Math.max(...xs) - Math.min(...xs) + 1;
+    const height = Math.max(...ys) - Math.min(...ys) + 1;
+    return width * height;
+  };
+
+  // Handle canvas click to place machines
+  const handleCanvasClick = (e) => {
+    if (!selectedTool || isRunning) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / GRID_SIZE);
+    const y = Math.floor((e.clientY - rect.top) / GRID_SIZE);
+
+    // Check if cell is occupied
+    const occupied = machines.some(m => m.x === x && m.y === y);
+    if (occupied) return;
+
+    const newMachine = {
+      id: Date.now(),
+      type: selectedTool,
+      x,
+      y,
+      rotation: 0
+    };
+
+    setMachines([...machines, newMachine]);
+    setStats({ ...stats, machinesUsed: machines.length + 1 });
+  };
+
+  // Simulation loop
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      setCycle(c => c + 1);
+      
+      // Simple simulation: RNA polymerase reads DNA and produces RNA
+      const polymerases = machines.filter(m => m.type === MACHINE_TYPES.RNA_POLYMERASE);
+      
+      if (polymerases.length > 0 && cycle < dnaSequence.length) {
+        const nucleotide = dnaSequence[cycle];
+        const rnaBase = NUCLEOTIDES[nucleotide].complement;
+        setProducedRNA(prev => [...prev, rnaBase]);
+        
+        // Create visual molecule
+        const poly = polymerases[0];
+        setMolecules(prev => [...prev, {
+          id: Date.now(),
+          base: rnaBase,
+          x: poly.x * GRID_SIZE + GRID_SIZE / 2,
+          y: poly.y * GRID_SIZE + GRID_SIZE / 2,
+          targetY: poly.y * GRID_SIZE + GRID_SIZE * 3
+        }]);
+      }
+
+      // Check win condition
+      if (producedRNA.length === targetRNA.length) {
+        const isCorrect = producedRNA.every((base, i) => base === targetRNA[i]);
+        if (isCorrect) {
+          setIsRunning(false);
+          setStats({ cycles: cycle + 1, machinesUsed: machines.length, area: calculateArea() });
+        }
+      }
+
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isRunning, cycle, machines, dnaSequence, producedRNA, targetRNA]);
+
+  // Draw the game
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Clear canvas
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw grid
+    ctx.strokeStyle = '#2a2a3e';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= width; x += GRID_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= height; y += GRID_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Draw machines
+    machines.forEach(machine => {
+      const x = machine.x * GRID_SIZE;
+      const y = machine.y * GRID_SIZE;
+
+      if (machine.type === MACHINE_TYPES.RNA_POLYMERASE) {
+        // Draw RNA Polymerase as a hexagon
+        ctx.fillStyle = '#8b5cf6';
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI / 3) * i;
+          const px = x + GRID_SIZE / 2 + Math.cos(angle) * GRID_SIZE / 3;
+          const py = y + GRID_SIZE / 2 + Math.sin(angle) * GRID_SIZE / 3;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#a78bfa';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+
+    // Draw molecules (RNA nucleotides)
+    molecules.forEach(mol => {
+      const baseColor = Object.values(NUCLEOTIDES).find(n => n.complement === mol.base)?.color || '#ffffff';
+      ctx.fillStyle = baseColor;
+      ctx.beginPath();
+      ctx.arc(mol.x, mol.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(mol.base, mol.x, mol.y);
+    });
+
+    // Animate molecules
+    setMolecules(prev => prev.map(mol => ({
+      ...mol,
+      y: mol.y < mol.targetY ? mol.y + 2 : mol.y
+    })).filter(mol => mol.y <= height));
+
+  }, [machines, molecules]);
+
+  // Check if puzzle is solved
+  const isSolved = producedRNA.length === targetRNA.length && 
+                   producedRNA.every((base, i) => base === targetRNA[i]);
+
+  return (
+    <div className="w-full h-screen bg-gray-900 text-white p-4 flex flex-col">
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold mb-2">Protein Folding Game - Prototype v1</h1>
+        <p className="text-gray-400">DNA Transcription Puzzle</p>
+      </div>
+
+      <div className="flex-1 flex gap-4">
+        {/* Left Panel - Puzzle Info */}
+        <div className="w-64 bg-gray-800 rounded-lg p-4 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Objective</h3>
+            <p className="text-sm text-gray-400 mb-2">
+              Transcribe the DNA sequence into RNA
+            </p>
+            <div className="bg-gray-900 p-2 rounded">
+              <div className="text-xs text-gray-500 mb-1">DNA Input:</div>
+              <div className="flex gap-1 flex-wrap">
+                {dnaSequence.map((base, i) => (
+                  <span 
+                    key={i} 
+                    className="px-2 py-1 rounded text-xs font-mono"
+                    style={{ backgroundColor: NUCLEOTIDES[base].color }}
+                  >
+                    {base}
+                  </span>
+                ))}
+              </div>
+              <div className="text-xs text-gray-500 mt-2 mb-1">Target RNA:</div>
+              <div className="flex gap-1 flex-wrap">
+                {targetRNA.map((base, i) => (
+                  <span 
+                    key={i} 
+                    className="px-2 py-1 rounded text-xs font-mono bg-gray-700"
+                  >
+                    {base}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Tools</h3>
+            <button
+              className={`w-full p-3 rounded mb-2 ${
+                selectedTool === MACHINE_TYPES.RNA_POLYMERASE 
+                  ? 'bg-purple-600' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              onClick={() => setSelectedTool(MACHINE_TYPES.RNA_POLYMERASE)}
+            >
+              RNA Polymerase
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Stats</h3>
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cycles:</span>
+                <span>{cycle}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Machines:</span>
+                <span>{machines.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Area:</span>
+                <span>{calculateArea()}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Output</h3>
+            <div className="bg-gray-900 p-2 rounded min-h-12">
+              <div className="flex gap-1 flex-wrap">
+                {producedRNA.map((base, i) => (
+                  <span 
+                    key={i} 
+                    className="px-2 py-1 rounded text-xs font-mono"
+                    style={{ 
+                      backgroundColor: Object.values(NUCLEOTIDES).find(n => n.complement === base)?.color 
+                    }}
+                  >
+                    {base}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {isSolved && (
+            <div className="bg-green-900 border border-green-500 rounded p-3 text-center">
+              <div className="text-xl font-bold mb-1">✓ Solved!</div>
+              <div className="text-xs">
+                <div>Cycles: {stats.cycles}</div>
+                <div>Machines: {stats.machinesUsed}</div>
+                <div>Area: {stats.area}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main Canvas */}
+        <div className="flex-1 bg-gray-800 rounded-lg p-4">
+          <div className="mb-2 flex gap-2">
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+              onClick={() => setIsRunning(!isRunning)}
+              disabled={machines.length === 0}
+            >
+              {isRunning ? <Pause size={16} /> : <Play size={16} />}
+              {isRunning ? 'Pause' : 'Run'}
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+              onClick={handleReset}
+            >
+              <RotateCcw size={16} />
+              Reset
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded"
+              onClick={handleClear}
+            >
+              <Trash2 size={16} />
+              Clear
+            </button>
+          </div>
+
+          <canvas
+            ref={canvasRef}
+            width={800}
+            height={600}
+            className="border border-gray-700 rounded cursor-crosshair"
+            onClick={handleCanvasClick}
+          />
+
+          <div className="mt-2 text-sm text-gray-400">
+            {selectedTool 
+              ? `Click on the grid to place: ${selectedTool.replace('_', ' ').toUpperCase()}`
+              : 'Select a tool from the left panel to start building'
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TranscriptionGame;
