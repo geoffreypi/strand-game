@@ -67,15 +67,32 @@
   - Creates interesting optimization: speed vs. accuracy
   
 **Thermodynamic System (inspired by Oxygen Not Included):**
-  - **Heat generation:** Molecular processes generate heat
+  - **Heat generation:** All molecular processes generate heat (some more than others)
+    - Binding events produce heat
+    - Failed bindings produce heat
+    - Transcription/translation produce heat
+    - Different reactions have different heat profiles
+  - **Passive heat dissipation:** Heat gradually radiates away via diffusion
+  - **Active heat transport (key mechanic!):**
+    - **Heat capacity proteins:** Special proteins that can store large amounts of heat
+    - **Conformational switching:** As they absorb heat, probability of conformational change increases
+    - **Heat shuttle cycle:**
+      1. Cool conformation near hot process → absorbs heat
+      2. Gets hot → undergoes conformational change
+      3. New shape is attracted to distant "heat sink" molecule
+      4. Travels to heat sink, dumps heat
+      5. Cools down → refolds to original conformation
+      6. Original shape attracted back to hot zone
+      7. Cycle repeats
+    - **Active cooling:** Removes heat faster than diffusion alone
+    - **Player-designed:** Players must build/position these heat transport proteins
   - **Heat transfer:** Heat conducts between adjacent molecules/regions
   - **Temperature effects:**
     - **Too hot:** Proteins denature (unfold), reactions speed up but error rates spike
     - **Too cold:** Reactions slow down, Brownian motion decreases
     - **Optimal range:** Different proteins have different temperature optima
-  - **Heat sinks:** Need to manage and dissipate heat
   - **Cascading failures:** Hot spot can spread and denature entire protein chains
-  - **Strategic cooling:** Build heat-management proteins, position molecules strategically
+  - **Strategic cooling:** Position heat-capacity proteins, design heat shuttle systems
 - **Binding lock:** Once two structures successfully bind:
   - No other structures are attracted to either of them
   - Binding is exclusive (prevents multi-binding confusion)
@@ -247,13 +264,19 @@ Shape determines function!
 4. **Visual feedback:** How do we show attraction forces, heat, and binding in progress?
 
 **Thermodynamics (ONI-inspired):**
-1. **Heat generation rates:** How much heat per binding event? Per failed binding?
-2. **Heat capacity:** Do different molecules store heat differently?
+1. **Heat generation rates:** How much heat per binding event? Per failed binding? Per transcription/translation?
+2. **Heat capacity:** Do different molecules store heat differently? How much can heat-capacity proteins hold?
 3. **Heat transfer:** Conduction rates between molecules? Does empty space insulate?
-4. **Denaturation:** At what temperature do proteins unfold? Is it reversible?
-5. **Cooling mechanisms:** Active cooling proteins? Passive heat sinks? Heat vents?
-6. **Temperature gradients:** How do hot/cold zones form and spread?
-7. **Error states:** What happens when molecules bind incorrectly? Can they unbind? Require repair?
+4. **Passive diffusion rate:** How fast does heat radiate away naturally?
+5. **Conformational change probability:** How does temperature map to probability of switching?
+6. **Heat shuttle design:** 
+   - What shapes attract to hot zones vs. cold zones?
+   - How much heat can one shuttle protein transport per cycle?
+   - Speed of shuttle travel?
+7. **Denaturation:** At what temperature do proteins unfold? Is it reversible?
+8. **Heat sink molecules:** What do shuttle proteins dump heat to? Just empty space? Special molecules?
+9. **Temperature gradients:** How do hot/cold zones form and spread?
+10. **Visual feedback:** How to show temperature, heat capacity, conformational states?
 
 **Protein Folding:**
 1. **Folding mechanism:** Automatic based on sequence? Player-controlled? Energy minimization?
