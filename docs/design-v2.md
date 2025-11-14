@@ -34,29 +34,39 @@ Example RNA strand on hex grid:
 #### 3. DNA Structure
 **Double Helix → Double Strand (no helix in game)**
 - Two parallel strands with complementary base pairs
-- One hex gap between strands
-- Gap contains visual symbol showing linkage/bonding
+- One hex gap between strands (middle row has linkage symbols)
+- Gap contains X-shaped symbols showing hydrogen bonding
 - Each strand mostly straight, occasional 60° corners allowed
 - Both strands conform to hex grid alignment
+- **Directionality is critical and must be displayed**
 
 **Visual Representation:**
 ```
-A ═══ T --- A ═══ T --- G ═══ C
-     ║           ║           ║
-T ═══ A --- T ═══ A --- C ═══ G
+3'─ A ─── C ─── G ─── T ─5'  (top strand, left to right = 3' to 5')
+     ╲   ╱ ╲   ╱ ╲   ╱ ╲   ╱
+      ╳     ╳     ╳     ╳      (middle row: X-shaped linkages)
+     ╱ ╲   ╱ ╲   ╱ ╲   ╱ ╲
+5'─ T ─── G ─── C ─── A ─3'  (bottom strand, left to right = 5' to 3')
 
-Where:
-- Letters = nucleotides on hex grid
-- ═══ = hydrogen bonds (linkage symbols)
-- --- = backbone connections
-- ║ = visual indicator of pairing
+Example with complementary pairing:
+- Top: A-C-G-T (reading 3' → 5')
+- Bottom: T-G-C-A (reading 5' → 3')
+- Base pairing: A-T, C-G, G-C, T-A
 ```
 
+**Critical Details:**
+- **Top strand:** 3' to 5' direction (left to right)
+- **Bottom strand:** 5' to 3' direction (left to right)  
+- **Directionality labels:** Show "3'" and "5'" at the ends of both strands
+- **Middle row hexes:** X-shaped linkage symbols (representing hydrogen bonds)
+- **Complementary pairing:** A↔T (2 H-bonds), G↔C (3 H-bonds)
+
 **Constraints:**
-- Strands maintain one hex spacing
+- Strands maintain exactly one hex spacing (middle row between them)
 - Complementary pairing enforced (A-T, G-C)
 - Can have 60° bends while maintaining structure
 - Both strands must remain on hex grid
+- Antiparallel orientation always maintained (one strand 5'→3', other 3'→5')
 
 #### 4. RNA Structure
 - Single strand only
