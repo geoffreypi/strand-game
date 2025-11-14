@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Renderer Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #ffffff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .output {
+            background: #0f0f1e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #00ff88;
+            margin-top: 30px;
+        }
+        pre {
+            margin: 10px 0;
+            white-space: pre;
+        }
+        .input-section {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        input, textarea {
+            font-family: 'Courier New', monospace;
+            background: #0f0f1e;
+            color: #ffffff;
+            border: 1px solid #00ff88;
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 5px 0;
+        }
+        button {
+            background: #00ff88;
+            color: #0f0f1e;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            margin: 5px 5px 5px 0;
+        }
+        button:hover {
+            background: #00dd77;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧬 ASCII Renderer Test</h1>
+    <p>Quick visualization of molecular structures</p>
+
+    <div class="output">
+        <h2>Examples</h2>
+        <div id="examples"></div>
+    </div>
+
+    <div class="input-section">
+        <h2>Try Your Own</h2>
+        
+        <h3>DNA</h3>
+        <label>Top Strand (3'→5'):</label>
+        <input type="text" id="dna-top" value="ACGTACGT" />
+        <label>Bottom Strand (5'→3'):</label>
+        <input type="text" id="dna-bottom" value="TGCATGCA" />
+        <button onclick="renderCustomDNA()">Render DNA</button>
+        <pre id="dna-output"></pre>
+
+        <h3>RNA</h3>
+        <label>Sequence:</label>
+        <input type="text" id="rna-seq" value="ACGUACGU" />
+        <button onclick="renderCustomRNA()">Render RNA (Straight)</button>
+        <label>Bend Position (0-indexed):</label>
+        <input type="number" id="rna-bend" value="3" min="0" />
+        <button onclick="renderCustomRNABend()">Render RNA (With Bend)</button>
+        <pre id="rna-output"></pre>
+
+        <h3>Protein</h3>
+        <label>Amino Acid Sequence (use hyphens):</label>
+        <input type="text" id="protein-seq" value="S-E60-BA-BG-RPF-CRL-C60" />
+        <button onclick="renderCustomProtein()">Render Protein (Straight)</button>
+        <label>Bend Position (0-indexed):</label>
+        <input type="number" id="protein-bend" value="3" min="0" />
+        <label>Bend Angle:</label>
+        <select id="protein-angle">
+            <option value="60">60°</option>
+            <option value="120">120°</option>
+        </select>
+        <button onclick="renderCustomProteinBend()">Render Protein (With Bend)</button>
+        <pre id="protein-output"></pre>
+
+        <h3>Hex Grid</h3>
+        <label>Hexes (JSON format: [{"q":0,"r":0,"type":"A"}, ...]):</label>
+        <textarea id="hex-input" rows="5">
+[
+  {"q":0,"r":0,"type":"A"},
+  {"q":1,"r":0,"type":"C"},
+  {"q":0,"r":1,"type":"╳"},
+  {"q":0,"r":2,"type":"T"}
+]</textarea>
+        <button onclick="renderCustomHexGrid()">Render Hex Grid</button>
+        <pre id="hex-output"></pre>
+    </div>
+
+    <script src="../src/renderers/ascii-renderer.js"></script>
+    <script>
+        // Run examples
+        function runExamples() {
+            const examples = document.getElementById('examples');
+            
+            let html = '';
+            
+            html += '<h3>DNA Structure</h3>';
+            html += '<pre>' + ASCIIRenderer.renderDNA("ACGT", "TGCA") + '</pre>';
+            
+            html += '<h3>RNA Structure (straight)</h3>';
+            html += '<pre>' + ASCIIRenderer.renderRNA("ACGUA") + '</pre>';
+            
+            html += '<h3>RNA Structure (with 60° bend at position 2)</h3>';
+            html += '<pre>' + ASCIIRenderer.renderRNAWithBend("ACGUA", 2) + '</pre>';
+            
+            html += '<h3>Protein Structure (straight)</h3>';
+            html += '<pre>' + ASCIIRenderer.renderProtein("S-E60-BA-RPF-C60") + '</pre>';
+            
+            html += '<h3>Protein Structure (with 60° bend at position 2)</h3>';
+            html += '<pre>' + ASCIIRenderer.renderProteinWithBend("S-E60-BA-RPF-C60", 2, 60) + '</pre>';
+            
+            html += '<h3>Hex Grid (DNA structure)</h3>';
+            const dnaHexes = {
+                hexes: [
+                    { q: 0, r: 0, type: 'A' },
+                    { q: 1, r: 0, type: 'C' },
+                    { q: 2, r: 0, type: 'G' },
+                    { q: 3, r: 0, type: 'T' },
+                    { q: 0, r: 1, type: '╳' },
+                    { q: 1, r: 1, type: '╳' },
+                    { q: 2, r: 1, type: '╳' },
+                    { q: 0, r: 2, type: 'T' },
+                    { q: 1, r: 2, type: 'G' },
+                    { q: 2, r: 2, type: 'C' },
+                    { q: 3, r: 2, type: 'A' }
+                ]
+            };
+            html += '<pre>' + ASCIIRenderer.renderHexGrid(dnaHexes) + '</pre>';
+            
+            examples.innerHTML = html;
+        }
+
+        // Custom renderers
+        function renderCustomDNA() {
+            const top = document.getElementById('dna-top').value;
+            const bottom = document.getElementById('dna-bottom').value;
+            document.getElementById('dna-output').textContent = 
+                ASCIIRenderer.renderDNA(top, bottom);
+        }
+
+        function renderCustomRNA() {
+            const seq = document.getElementById('rna-seq').value;
+            document.getElementById('rna-output').textContent = 
+                ASCIIRenderer.renderRNA(seq);
+        }
+
+        function renderCustomRNABend() {
+            const seq = document.getElementById('rna-seq').value;
+            const bend = parseInt(document.getElementById('rna-bend').value);
+            document.getElementById('rna-output').textContent = 
+                ASCIIRenderer.renderRNAWithBend(seq, bend);
+        }
+
+        function renderCustomProtein() {
+            const seq = document.getElementById('protein-seq').value;
+            document.getElementById('protein-output').textContent = 
+                ASCIIRenderer.renderProtein(seq);
+        }
+
+        function renderCustomProteinBend() {
+            const seq = document.getElementById('protein-seq').value;
+            const bend = parseInt(document.getElementById('protein-bend').value);
+            const angle = parseInt(document.getElementById('protein-angle').value);
+            document.getElementById('protein-output').textContent = 
+                ASCIIRenderer.renderProteinWithBend(seq, bend, angle);
+        }
+
+        function renderCustomHexGrid() {
+            try {
+                const hexes = JSON.parse(document.getElementById('hex-input').value);
+                document.getElementById('hex-output').textContent = 
+                    ASCIIRenderer.renderHexGrid({ hexes: hexes });
+            } catch (e) {
+                document.getElementById('hex-output').textContent = 
+                    'ERROR: Invalid JSON - ' + e.message;
+            }
+        }
+
+        // Initialize
+        runExamples();
+    </script>
+</body>
+</html>
