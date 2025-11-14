@@ -107,6 +107,14 @@
         // ASCII Renderer - Fast text-based visualization of molecular structures
         class ASCIIRenderer {
             
+            // Helper to pad string to 3 characters centered
+            static pad3(str) {
+                if (str.length >= 3) return str.substring(0, 3);
+                if (str.length === 2) return str + ' ';
+                if (str.length === 1) return '-' + str + '-';
+                return '   ';
+            }
+            
             // Render DNA structure
             static renderDNA(topSequence, bottomSequence) {
                 if (topSequence.length !== bottomSequence.length) {
@@ -115,27 +123,27 @@
                 
                 const length = topSequence.length;
                 
-                // Build top line with directional markers
-                let topLine = "3'-" + topSequence.split('').join('-') + "-5'";
+                // Build top line with directional markers and padded bases
+                let topBases = topSequence.split('').map(b => this.pad3(b)).join('');
+                let topLine = "3'" + topBases + "5'";
                 
                 // Build middle line with vertical bars linking each base pair
-                let middleLine = "   ";  // Offset for alignment with "3'-"
+                let middleLine = "  ";  // Offset for alignment with "3'"
                 for (let i = 0; i < length; i++) {
-                    middleLine += "|";
-                    if (i < length - 1) {
-                        middleLine += "   ";  // Space between bars (matches the dash spacing)
-                    }
+                    middleLine += " | ";
                 }
                 
-                // Build bottom line with directional markers
-                let bottomLine = "5'-" + bottomSequence.split('').join('-') + "-3'";
+                // Build bottom line with directional markers and padded bases
+                let bottomBases = bottomSequence.split('').map(b => this.pad3(b)).join('');
+                let bottomLine = "5'" + bottomBases + "3'";
                 
                 return topLine + '\n' + middleLine + '\n' + bottomLine;
             }
             
             // Render RNA structure (straight)
             static renderRNA(sequence) {
-                return "5'-" + sequence.split('').join('-') + "-3'";
+                let bases = sequence.split('').map(b => this.pad3(b)).join('');
+                return "5'" + bases + "3'";
             }
             
             // Render RNA with 60° bend
@@ -148,25 +156,27 @@
                 
                 // Before bend
                 let beforeBend = sequence.substring(0, bendPosition + 1);
-                lines.push("5'-" + beforeBend.split('').join('-'));
+                let beforeBases = beforeBend.split('').map(b => this.pad3(b)).join('');
+                lines.push("5'" + beforeBases);
                 
                 // Calculate indent for the line before bend
-                let baseIndent = "   " + " ".repeat(beforeBend.length * 2);
+                let baseIndent = "  " + " ".repeat(beforeBend.length * 3);
                 
                 // After bend (each base moves down and to the right)
                 let afterBend = sequence.substring(bendPosition + 1);
                 for (let i = 0; i < afterBend.length; i++) {
-                    // Each successive base indents further right
-                    let currentIndent = baseIndent + " ".repeat(i * 2);
+                    // Each successive base indents further right (3 chars per base)
+                    let currentIndent = baseIndent + " ".repeat(i * 3);
                     
                     if (i === 0) {
                         lines.push(currentIndent + "\\");
                     }
                     
+                    let paddedBase = this.pad3(afterBend[i]);
                     if (i === afterBend.length - 1) {
-                        lines.push(currentIndent + " " + afterBend[i] + "-3'");
+                        lines.push(currentIndent + paddedBase + "3'");
                     } else {
-                        lines.push(currentIndent + " " + afterBend[i]);
+                        lines.push(currentIndent + paddedBase);
                         lines.push(currentIndent + "  \\");
                     }
                 }
@@ -177,7 +187,9 @@
             // Render protein structure (straight, unfolded)
             static renderProtein(aminoAcidSequence) {
                 // aminoAcidSequence is like "S-E60-BA-RPF-C60"
-                return "N-" + aminoAcidSequence + "-C";
+                let aminoAcids = aminoAcidSequence.split('-');
+                let padded = aminoAcids.map(aa => this.pad3(aa)).join('');
+                return "N" + padded + "C";
             }
             
             // Render protein with bends
@@ -192,22 +204,17 @@
                 
                 // Before bend
                 let beforeBend = aminoAcids.slice(0, bendPosition + 1);
-                lines.push("N-" + beforeBend.join('-'));
+                let beforePadded = beforeBend.map(aa => this.pad3(aa)).join('');
+                lines.push("N" + beforePadded);
                 
-                // Calculate base indent
-                let beforeBendStr = beforeBend.join('-');
-                let baseIndent = "  " + " ".repeat(beforeBendStr.length + 1);
+                // Calculate base indent (1 for N + 3 per amino acid)
+                let baseIndent = " " + " ".repeat(beforeBend.length * 3);
                 
                 // After bend (each amino acid moves down and to the right)
                 let afterBend = aminoAcids.slice(bendPosition + 1);
                 for (let i = 0; i < afterBend.length; i++) {
-                    // Each successive amino acid indents further right
-                    // Account for varying amino acid name lengths
-                    let additionalIndent = 0;
-                    for (let j = 0; j < i; j++) {
-                        additionalIndent += afterBend[j].length + 1; // +1 for the dash or space
-                    }
-                    let currentIndent = baseIndent + " ".repeat(additionalIndent);
+                    // Each successive amino acid indents further right (3 chars per AA)
+                    let currentIndent = baseIndent + " ".repeat(i * 3);
                     
                     if (i === 0) {
                         if (bendAngle === 60) {
@@ -217,14 +224,15 @@
                         }
                     }
                     
+                    let paddedAA = this.pad3(afterBend[i]);
                     if (i === afterBend.length - 1) {
-                        lines.push(currentIndent + " " + afterBend[i] + "-C");
+                        lines.push(currentIndent + paddedAA + "C");
                     } else {
-                        lines.push(currentIndent + " " + afterBend[i]);
+                        lines.push(currentIndent + paddedAA);
                         if (bendAngle === 60) {
-                            lines.push(currentIndent + " " + " ".repeat(afterBend[i].length) + "\\");
+                            lines.push(currentIndent + "  \\");
                         } else {
-                            lines.push(currentIndent + " " + " ".repeat(afterBend[i].length) + "/");
+                            lines.push(currentIndent + "  /");
                         }
                     }
                 }
