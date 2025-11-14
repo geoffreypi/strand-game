@@ -49,11 +49,32 @@
 - Orientation slowly random walks (rotational Brownian motion)
 - Creates dynamic, organic feel to molecular interactions
 
+**Shape-Complementarity Binding System**
+- **Binding partners:** Proteins can bind to:
+  - Other proteins
+  - DNA strands
+  - RNA strands
+  - Possibly strand-to-strand pairing
+- **Attraction mechanism:** When two molecules have complementary shapes:
+  - They feel an attractive **force** (pulling them together)
+  - They feel a **torque** (rotating them to align)
+  - Strength of force/torque increases with shape similarity
+- **Speed-Heat-Error Tradeoff:**
+  - **More similar shapes** → **faster binding**
+  - **Faster binding** → **more heat generated** (possibly unwanted side effect)
+  - **Faster binding** → **higher error rate** (chance to get stuck in invalid/incorrect configurations)
+  - Creates interesting optimization: speed vs. accuracy
+- **Binding lock:** Once two structures successfully bind:
+  - No other structures are attracted to either of them
+  - Binding is exclusive (prevents multi-binding confusion)
+  - Bound complex moves as a single unit
+
 **Implications:**
-- Machines must "catch" molecules as they drift by
+- Machines must "catch" molecules as they drift by (or attract them via shape)
 - Timing becomes important - wait for the right orientation
 - More realistic molecular behavior
-- Adds difficulty/interest: molecules won't always be in perfect position
+- Heat management could be a resource/constraint
+- Error correction mechanisms could be valuable proteins to build
 
 #### 2. Molecular Representation System
 **Hex Grid Local Structure**
@@ -202,8 +223,18 @@ Shape determines function!
 
 **Molecular Physics:**
 1. **Brownian motion speed:** How fast should molecules drift? Balance between dynamic and playable
-2. **Collision behavior:** What happens when molecules bump into each other?
+2. **Collision behavior:** What happens when molecules bump into each other (not complementary)?
 3. **Molecule spawning:** Continuous flow? Player-controlled? Resource management?
+4. **Binding radius:** At what distance does shape-complementarity attraction activate?
+5. **Force strength:** How strong is the attractive force? Does it overpower Brownian motion completely?
+
+**Shape-Complementarity System:**
+1. **Shape matching algorithm:** How do we determine if two shapes are complementary?
+2. **Partial matches:** Can shapes be "somewhat" complementary? Gradient of attraction?
+3. **Heat mechanics:** How is heat generated, accumulated, dissipated? What are consequences?
+4. **Error states:** What happens when molecules bind incorrectly? Can they unbind? Require repair?
+5. **Strand pairing:** Can DNA-DNA or RNA-RNA bind via complementary sequences?
+6. **Visual feedback:** How do we show attraction forces, heat, and binding in progress?
 
 **Protein Folding:**
 1. **Folding mechanism:** Automatic based on sequence? Player-controlled? Energy minimization?
