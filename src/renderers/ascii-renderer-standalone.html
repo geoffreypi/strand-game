@@ -221,16 +221,29 @@
                 let beforeBendStr = beforeBend.join('-');
                 let baseIndent = "  " + " ".repeat(beforeBendStr.length + 1);
                 
-                // After bend (each amino acid moves down and to the right)
+                // After bend (each amino acid moves down and to the right for 60°, left for 120°)
                 let afterBend = aminoAcids.slice(bendPosition + 1);
                 for (let i = 0; i < afterBend.length; i++) {
-                    // Each successive amino acid indents further right
-                    // Account for varying amino acid name lengths
-                    let additionalIndent = 0;
-                    for (let j = 0; j < i; j++) {
-                        additionalIndent += afterBend[j].length + 1; // +1 for the dash
+                    let currentIndent;
+                    
+                    if (bendAngle === 60) {
+                        // 60° - move right
+                        let additionalIndent = 0;
+                        for (let j = 0; j < i; j++) {
+                            additionalIndent += afterBend[j].length + 1;
+                        }
+                        currentIndent = baseIndent + " ".repeat(additionalIndent);
+                    } else {
+                        // 120° - move left
+                        let totalWidth = 0;
+                        for (let j = 0; j <= i; j++) {
+                            totalWidth += afterBend[j].length + 1;
+                        }
+                        // Reduce indent as we go down
+                        let reduction = totalWidth;
+                        let newIndentLength = Math.max(0, baseIndent.length - reduction);
+                        currentIndent = " ".repeat(newIndentLength);
                     }
-                    let currentIndent = baseIndent + " ".repeat(additionalIndent);
                     
                     if (i === 0) {
                         if (bendAngle === 60) {
