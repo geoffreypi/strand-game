@@ -3,7 +3,7 @@
 ## What We've Completed ✅
 
 ### Design & Documentation
-- **Complete v2 design document** (`docs/design-v2.md`)
+- **Complete design document** (`docs/design.md`)
   - Core game philosophy (sandbox mechanics, Shapez/Factorio/ONI inspired)
   - Brownian motion & hex-grid molecules
   - Shape-complementarity binding system
@@ -12,7 +12,7 @@
   - Heat transport system (deferred for now)
   - ATP energy system (deferred for now)
 
-- **ECS architecture design** (`docs/implementation-v2-ecs.md`)
+- **ECS architecture design** (`docs/implementation.md`)
   - Complete component definitions
   - System designs for physics, binding, catalysis, folding
   - Factory functions for creating molecules
@@ -103,17 +103,15 @@
 ```
 protein-folding-game/
 ├── docs/
-│   ├── design-v2.md              # Complete game design
-│   ├── implementation-v2-ecs.md  # ECS architecture
-│   ├── design-notes.md           # Original notes
-│   └── git-workflow.md           # Git guide
-├── prototypes/
-│   ├── v1-transcription-vanilla.html  # Working v1 prototype
-│   └── dna-hex-visualization.html     # Hex grid test
+│   ├── design.md           # Complete game design
+│   ├── implementation.md   # ECS architecture
+│   └── hex-test.html       # Hex grid test
 ├── src/
 │   └── renderers/
 │       ├── ascii-renderer.js              # ASCII renderer (module)
+│       ├── ascii-renderer.test.js         # 15 canonical tests
 │       └── ascii-renderer-standalone.html # ASCII test interface
+├── assets/                 # Design diagrams (SVGs)
 └── README.md
 ```
 

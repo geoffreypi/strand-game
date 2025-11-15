@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 350">
+  <defs>
+    <style>
+      .title { fill: #ffffff; font-family: sans-serif; font-size: 20px; font-weight: bold; }
+      .subtitle { fill: #a8a8a8; font-family: sans-serif; font-size: 12px; }
+      .nucleotide { font-family: monospace; font-size: 16px; font-weight: bold; }
+      .terminus { fill: #00ff88; font-family: monospace; font-size: 14px; font-weight: bold; }
+      .bond { stroke: #ffd93d; stroke-width: 2; }
+      .strand { stroke: #00ff88; stroke-width: 3; fill: none; }
+      .label { fill: #88ddff; font-family: sans-serif; font-size: 11px; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="350" y="30" class="title" text-anchor="middle">DNA Double Strand Structure</text>
+  <text x="350" y="50" class="subtitle" text-anchor="middle">Antiparallel strands with complementary base pairing</text>
+
+  <!-- Top strand -->
+  <g id="top-strand">
+    <!-- 5' terminus -->
+    <text x="50" y="120" class="terminus">5'</text>
+
+    <!-- Nucleotides -->
+    <circle cx="120" cy="115" r="18" fill="#ff6b6b" opacity="0.7"/>
+    <text x="120" y="122" class="nucleotide" fill="#fff" text-anchor="middle">A</text>
+
+    <line x1="138" y1="115" x2="182" y2="115" class="strand"/>
+
+    <circle cx="200" cy="115" r="18" fill="#4ecdc4" opacity="0.7"/>
+    <text x="200" y="122" class="nucleotide" fill="#fff" text-anchor="middle">C</text>
+
+    <line x1="218" y1="115" x2="262" y2="115" class="strand"/>
+
+    <circle cx="280" cy="115" r="18" fill="#ffd93d" opacity="0.7"/>
+    <text x="280" y="122" class="nucleotide" fill="#fff" text-anchor="middle">G</text>
+
+    <line x1="298" y1="115" x2="342" y2="115" class="strand"/>
+
+    <circle cx="360" cy="115" r="18" fill="#a78bfa" opacity="0.7"/>
+    <text x="360" y="122" class="nucleotide" fill="#fff" text-anchor="middle">T</text>
+
+    <line x1="378" y1="115" x2="422" y2="115" class="strand"/>
+
+    <circle cx="440" cy="115" r="18" fill="#ff6b6b" opacity="0.7"/>
+    <text x="440" y="122" class="nucleotide" fill="#fff" text-anchor="middle">A</text>
+
+    <line x1="458" y1="115" x2="502" y2="115" class="strand"/>
+
+    <circle cx="520" cy="115" r="18" fill="#4ecdc4" opacity="0.7"/>
+    <text x="520" y="122" class="nucleotide" fill="#fff" text-anchor="middle">C</text>
+
+    <!-- 3' terminus -->
+    <text x="580" y="120" class="terminus">3'</text>
+
+    <!-- Direction arrow -->
+    <path d="M 70 100 L 560 100" stroke="#00ff88" stroke-width="1.5" fill="none" marker-end="url(#arrow-green)" opacity="0.5"/>
+    <text x="315" y="95" class="label" text-anchor="middle">5' → 3'</text>
+  </g>
+
+  <!-- Hydrogen bonds -->
+  <g id="h-bonds">
+    <!-- A-T (2 bonds) - side-by-side vertical lines -->
+    <line x1="115" y1="133" x2="115" y2="177" class="bond"/>
+    <line x1="125" y1="133" x2="125" y2="177" class="bond"/>
+    <text x="105" y="160" class="label" text-anchor="end">2 H-bonds</text>
+
+    <!-- C-G (3 bonds) - side-by-side vertical lines -->
+    <line x1="193" y1="133" x2="193" y2="177" class="bond"/>
+    <line x1="200" y1="133" x2="200" y2="177" class="bond"/>
+    <line x1="207" y1="133" x2="207" y2="177" class="bond"/>
+    <text x="183" y="160" class="label" text-anchor="end">3 H-bonds</text>
+
+    <!-- G-C (3 bonds) - side-by-side vertical lines -->
+    <line x1="273" y1="133" x2="273" y2="177" class="bond"/>
+    <line x1="280" y1="133" x2="280" y2="177" class="bond"/>
+    <line x1="287" y1="133" x2="287" y2="177" class="bond"/>
+
+    <!-- T-A (2 bonds) - side-by-side vertical lines -->
+    <line x1="355" y1="133" x2="355" y2="177" class="bond"/>
+    <line x1="365" y1="133" x2="365" y2="177" class="bond"/>
+
+    <!-- A-T (2 bonds) - side-by-side vertical lines -->
+    <line x1="435" y1="133" x2="435" y2="177" class="bond"/>
+    <line x1="445" y1="133" x2="445" y2="177" class="bond"/>
+
+    <!-- C-G (3 bonds) - side-by-side vertical lines -->
+    <line x1="513" y1="133" x2="513" y2="177" class="bond"/>
+    <line x1="520" y1="133" x2="520" y2="177" class="bond"/>
+    <line x1="527" y1="133" x2="527" y2="177" class="bond"/>
+  </g>
+
+  <!-- Bottom strand -->
+  <g id="bottom-strand">
+    <!-- 3' terminus -->
+    <text x="50" y="200" class="terminus">3'</text>
+
+    <!-- Nucleotides -->
+    <circle cx="120" cy="195" r="18" fill="#a78bfa" opacity="0.7"/>
+    <text x="120" y="202" class="nucleotide" fill="#fff" text-anchor="middle">T</text>
+
+    <line x1="138" y1="195" x2="182" y2="195" class="strand"/>
+
+    <circle cx="200" cy="195" r="18" fill="#ffd93d" opacity="0.7"/>
+    <text x="200" y="202" class="nucleotide" fill="#fff" text-anchor="middle">G</text>
+
+    <line x1="218" y1="195" x2="262" y2="195" class="strand"/>
+
+    <circle cx="280" cy="195" r="18" fill="#4ecdc4" opacity="0.7"/>
+    <text x="280" y="202" class="nucleotide" fill="#fff" text-anchor="middle">C</text>
+
+    <line x1="298" y1="195" x2="342" y2="195" class="strand"/>
+
+    <circle cx="360" cy="195" r="18" fill="#ff6b6b" opacity="0.7"/>
+    <text x="360" y="202" class="nucleotide" fill="#fff" text-anchor="middle">A</text>
+
+    <line x1="378" y1="195" x2="422" y2="195" class="strand"/>
+
+    <circle cx="440" cy="195" r="18" fill="#a78bfa" opacity="0.7"/>
+    <text x="440" y="202" class="nucleotide" fill="#fff" text-anchor="middle">T</text>
+
+    <line x1="458" y1="195" x2="502" y2="195" class="strand"/>
+
+    <circle cx="520" cy="195" r="18" fill="#ffd93d" opacity="0.7"/>
+    <text x="520" y="202" class="nucleotide" fill="#fff" text-anchor="middle">G</text>
+
+    <!-- 5' terminus -->
+    <text x="580" y="200" class="terminus">5'</text>
+
+    <!-- Direction arrow -->
+    <path d="M 70 210 L 560 210" stroke="#00ff88" stroke-width="1.5" fill="none" marker-end="url(#arrow-green)" opacity="0.5"/>
+    <text x="315" y="225" class="label" text-anchor="middle">3' → 5'</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(50, 300)">
+    <rect x="0" y="0" width="600" height="35" fill="#16213e" stroke="#00ff88" stroke-width="1" rx="3"/>
+    <circle cx="15" cy="17" r="8" fill="#ff6b6b" opacity="0.7"/>
+    <text x="30" y="22" class="label">Adenine (A)</text>
+
+    <circle cx="140" cy="17" r="8" fill="#a78bfa" opacity="0.7"/>
+    <text x="155" y="22" class="label">Thymine (T)</text>
+
+    <circle cx="265" cy="17" r="8" fill="#4ecdc4" opacity="0.7"/>
+    <text x="280" y="22" class="label">Cytosine (C)</text>
+
+    <circle cx="390" cy="17" r="8" fill="#ffd93d" opacity="0.7"/>
+    <text x="405" y="22" class="label">Guanine (G)</text>
+
+    <text x="520" y="22" class="label">Antiparallel</text>
+  </g>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#00ff88" />
+    </marker>
+  </defs>
+</svg>

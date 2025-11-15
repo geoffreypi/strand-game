@@ -9,6 +9,10 @@ dist/
 build/
 *.bundle.js
 
+# Test coverage
+coverage/
+.nyc_output/
+
 # IDE
 .vscode/
 .idea/

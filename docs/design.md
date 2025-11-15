@@ -63,6 +63,9 @@
 4. Challenges arise from the system itself, not artificial puzzle constraints
 
 #### 1. Molecular Movement System
+
+![Brownian Motion and Binding](../assets/brownian-motion.svg)
+
 **Brownian Motion Simulation**
 - DNA, RNA, and proteins float freely in 2D space
 - Position slowly random walks (Brownian motion)
@@ -125,21 +128,19 @@
 - Error correction mechanisms could be valuable proteins to build
 
 #### 2. Molecular Representation System
+
+![Hex Grid Coordinate System](../assets/hex-grid-system.svg)
+
 **Hex Grid Local Structure**
 - All molecules (DNA, RNA, proteins) are built on hex grid principles
 - Each hex contains one component (nucleotide or amino acid)
 - Molecules consist of straight segments with 60° or 120° turns
 - Locally hex-based, but float freely in continuous space
 
-**Visual Structure:**
-```
-Example RNA strand on hex grid:
-   A --- U --- C --- G
-            \
-             A --- U
-```
-
 #### 3. DNA Structure
+
+![DNA Double Strand Structure](../assets/dna-structure.svg)
+
 **Double Helix → Double Strand (no helix in game)**
 - Two parallel strands with complementary base pairs
 - One hex gap between strands (middle row has linkage symbols)
@@ -150,15 +151,15 @@ Example RNA strand on hex grid:
 
 **Visual Representation:**
 ```
-3'-A-C-G-T-5'  (top strand, left to right = 3' to 5')
-    ╳ ╳ ╳      (middle row: X-shaped linkages between base pairs)
-5'-T-G-C-A-3'  (bottom strand, left to right = 5' to 3')
+3'-<A>-<C>-<G>-<T>-5'  (top strand, left to right = 3' to 5')
+   | | ||| ||| | |     (hydrogen bonds: | | for A-T, ||| for G-C)
+5'-<T>-<G>-<C>-<A>-3'  (bottom strand, left to right = 5' to 3')
 
 Example with complementary pairing:
 - Top: A-C-G-T (reading 3' → 5')
 - Bottom: T-G-C-A (reading 5' → 3')
-- Base pairing: A-T, C-G, G-C, T-A
-- 3 Xs for 4 base pairs (linkages between adjacent pairs)
+- Base pairing: A-T (2 bonds), C-G (3 bonds), G-C (3 bonds), T-A (2 bonds)
+- Hydrogen bonds shown vertically between paired bases
 ```
 
 **Critical Details:**
@@ -185,14 +186,14 @@ Example with complementary pairing:
 
 **Visual Representation:**
 ```
-5'-A-C-G-U-A-3'  (straight segment)
+5'-<A>-<C>-<G>-<U>-<A>-3'  (straight segment)
 
 Or with 60° bend:
-5'-A-C-G
-        \
-         U
-          \
-           A-3'
+5'-<A>-<C>-<G>
+             \
+             <U>
+               \
+               <A>-3'
 ```
 
 **Constraints:**
@@ -205,6 +206,8 @@ Or with 60° bend:
 
 #### 5. Protein Structure & Folding
 
+![Protein Folding Process](../assets/protein-folding.svg)
+
 **Linear Structure (unfolded):**
 - Single strand (like RNA)
 - Sequence of amino acids (not nucleotides)
@@ -215,6 +218,8 @@ Or with 60° bend:
 - Directional labels: N-terminus and C-terminus at ends
 
 **Amino Acid Types (Game Design Properties):**
+
+![12 Amino Acid Types](../assets/amino-acid-types.svg)
 
 *Structural amino acids (control folding):*
 1. **Straight (STR):** 
@@ -228,13 +233,19 @@ Or with 60° bend:
    - Wants to bend at 60°
    - Direction decreases moment of inertia (tighter)
 
-4. **Expand-120 (E12):** 
+4. **Expand-120 (E12):**
    - Wants to bend at 120°
    - Direction increases moment of inertia (spreads out)
+   - Example: N-STR-E12
+                      \
+                       BTA (bends using /)
 
-5. **Compact-120 (C12):** 
+5. **Compact-120 (C12):**
    - Wants to bend at 120°
    - Direction decreases moment of inertia (tighter)
+   - Example: N-STR-C12
+                      /
+                       BTA (bends using \, opposite of E12)
 
 *DNA/RNA-binding amino acids (sequence recognition):*
 
@@ -315,6 +326,17 @@ This protein would:
 - End straight (STR)
 
 Result: Binds AT-rich DNA and bends it (but doesn't transcribe - no RPF)
+
+Visual example with bends AT amino acids (not in gaps):
+N-STR-EX6
+        \
+        BTA
+          \
+          STR-C
+
+The \ occurs AT the EX6 and BTA amino acids (60° bend),
+not in the gaps between them.
+```
 
 RNA Polymerase (simplified example):
 N-EX6-BTA-BTG-RPF-CRL-BTA-BTT-STR-STR-C

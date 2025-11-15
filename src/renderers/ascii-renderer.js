@@ -2,197 +2,168 @@
 // Usage: Quick debugging and structure verification
 
 class ASCIIRenderer {
-    
-    // Render DNA structure
-    static renderDNA(topSequence, bottomSequence) {
-        if (topSequence.length !== bottomSequence.length) {
-            return "ERROR: Top and bottom sequences must be same length";
-        }
-        
-        const length = topSequence.length;
-        
-        // Build top line with directional markers
-        let topLine = "3'-" + topSequence.split('').join('-') + "-5'";
-        
-        // Build middle line with X linkages (n-1 linkages for n bases)
-        let middleLine = "   ";  // Offset for alignment
-        for (let i = 0; i < length - 1; i++) {
-            middleLine += " ╳ ";
-        }
-        
-        // Build bottom line with directional markers
-        let bottomLine = "5'-" + bottomSequence.split('').join('-') + "-3'";
-        
-        return topLine + '\n' + middleLine + '\n' + bottomLine;
+
+  // Helper: Wrap RNA bases in <> brackets
+  static wrapRNABases(sequence) {
+    return sequence.split('').map(b => '<' + b + '>').join('-');
+  }
+
+  // Helper: Render a straight sequence (generic for RNA and proteins)
+  static renderSequence(sequence, prefix, suffix) {
+    return prefix + sequence + suffix;
+  }
+
+  // Helper: Render a sequence with a bend (generic for RNA and proteins)
+  static renderSequenceWithBend(sequence, bendPosition, bendAngle, prefix, suffix) {
+    const elements = sequence.split('-');
+
+    if (bendPosition < 0 || bendPosition >= elements.length - 1) {
+      return 'ERROR: Invalid bend position';
     }
-    
-    // Render RNA structure (straight)
-    static renderRNA(sequence) {
-        return "5'-" + sequence.split('').join('-') + "-3'";
+
+    let lines = [];
+
+    // Before bend
+    let beforeBend = elements.slice(0, bendPosition + 1);
+    let firstLine = prefix + beforeBend.join('-');
+    lines.push(firstLine);
+
+    // Determine bend character
+    let bendChar = bendAngle === 60 ? '\\' : '/';
+
+    // Calculate starting column: last character is at index (length - 1)
+    let lastCharIndex = firstLine.length - 1;
+
+    // After bend - position bend chars to point to centers of elements
+    let afterBend = elements.slice(bendPosition + 1);
+
+    // Find center position of last element before bend
+    let lastElement = elements[bendPosition];
+    let lastElementCenter = Math.floor(lastElement.length / 2);
+    let prevCenterPos = lastCharIndex - lastElement.length + 1 + lastElementCenter;
+
+    // First pass: calculate all positions to find minimum
+    let positions = [];
+    let tempPrevCenterPos = prevCenterPos;
+
+    for (let i = 0; i < afterBend.length; i++) {
+      let currentElement = afterBend[i];
+      let elementCenter = Math.floor(currentElement.length / 2);
+
+      let bendCharPos, currentCenterPos, elementStartPos;
+
+      if (bendAngle === 60) {
+        bendCharPos = tempPrevCenterPos + 1;
+        currentCenterPos = bendCharPos + 1;
+        elementStartPos = currentCenterPos - elementCenter;
+      } else {
+        bendCharPos = tempPrevCenterPos - 1;
+        currentCenterPos = bendCharPos - 1;
+        elementStartPos = currentCenterPos - elementCenter;
+      }
+
+      positions.push({ bendCharPos, elementStartPos, element: currentElement, isLast: i === afterBend.length - 1 });
+      tempPrevCenterPos = currentCenterPos;
     }
-    
-    // Render RNA with 60° bend
-    static renderRNAWithBend(sequence, bendPosition) {
-        if (bendPosition < 0 || bendPosition >= sequence.length - 1) {
-            return "ERROR: Invalid bend position";
-        }
-        
-        let lines = [];
-        
-        // Before bend
-        let beforeBend = sequence.substring(0, bendPosition + 1);
-        lines.push("5'-" + beforeBend.split('').join('-'));
-        
-        // Bend indicators
-        let indent = "   " + " ".repeat(beforeBend.length * 2);
-        lines.push(indent + "\\");
-        
-        // After bend (each base on its own indented line)
-        let afterBend = sequence.substring(bendPosition + 1);
-        for (let i = 0; i < afterBend.length; i++) {
-            if (i === afterBend.length - 1) {
-                lines.push(indent + " " + afterBend[i] + "-3'");
-            } else {
-                lines.push(indent + " " + afterBend[i]);
-                if (i < afterBend.length - 1) {
-                    lines.push(indent + "  \\");
-                }
-            }
-        }
-        
-        return lines.join('\n');
+
+    // Find minimum position
+    let minPos = 0;
+    for (let pos of positions) {
+      minPos = Math.min(minPos, pos.bendCharPos, pos.elementStartPos);
     }
-    
-    // Render protein structure (straight, unfolded)
-    static renderProtein(aminoAcidSequence) {
-        // aminoAcidSequence is like "S-E60-BA-RPF-C60"
-        return "N-" + aminoAcidSequence + "-C";
+
+    // Apply offset if needed (if minPos is negative, shift everything right)
+    let offset = minPos < 0 ? -minPos : 0;
+
+    // If we need to shift, also shift the first line
+    if (offset > 0) {
+      lines[0] = ' '.repeat(offset) + lines[0];
     }
-    
-    // Render protein with bends
-    static renderProteinWithBend(aminoAcidSequence, bendPosition, bendAngle) {
-        const aminoAcids = aminoAcidSequence.split('-');
-        
-        if (bendPosition < 0 || bendPosition >= aminoAcids.length - 1) {
-            return "ERROR: Invalid bend position";
-        }
-        
-        let lines = [];
-        
-        // Before bend
-        let beforeBend = aminoAcids.slice(0, bendPosition + 1);
-        lines.push("N-" + beforeBend.join('-'));
-        
-        // Bend indicator
-        let indent = "  " + " ".repeat(beforeBend.join('-').length + 1);
-        if (bendAngle === 60) {
-            lines.push(indent + "\\");
-        } else if (bendAngle === 120) {
-            lines.push(indent + "/");
-        }
-        
-        // After bend
-        let afterBend = aminoAcids.slice(bendPosition + 1);
-        for (let i = 0; i < afterBend.length; i++) {
-            if (i === afterBend.length - 1) {
-                lines.push(indent + " " + afterBend[i] + "-C");
-            } else {
-                lines.push(indent + " " + afterBend[i]);
-                if (i < afterBend.length - 1) {
-                    if (bendAngle === 60) {
-                        lines.push(indent + "  \\");
-                    } else {
-                        lines.push(indent + "  /");
-                    }
-                }
-            }
-        }
-        
-        return lines.join('\n');
+
+    // Second pass: render with offset
+    for (let pos of positions) {
+      let bendIndent = ' '.repeat(pos.bendCharPos + offset);
+      let elementIndent = ' '.repeat(pos.elementStartPos + offset);
+
+      lines.push(bendIndent + bendChar);
+
+      if (pos.isLast) {
+        lines.push(elementIndent + pos.element + suffix);
+      } else {
+        lines.push(elementIndent + pos.element);
+      }
     }
-    
-    // Render hex grid structure (show q,r coordinates)
-    static renderHexGrid(hexStructure) {
-        // Find bounds
-        let minQ = Infinity, maxQ = -Infinity;
-        let minR = Infinity, maxR = -Infinity;
-        
-        for (const hex of hexStructure.hexes) {
-            minQ = Math.min(minQ, hex.q);
-            maxQ = Math.max(maxQ, hex.q);
-            minR = Math.min(minR, hex.r);
-            maxR = Math.max(maxR, hex.r);
-        }
-        
-        let lines = [];
-        
-        // Build grid row by row
-        for (let r = minR; r <= maxR; r++) {
-            let line = "";
-            
-            // Offset for hex grid
-            if (r % 2 === 1) {
-                line += "  ";
-            }
-            
-            for (let q = minQ; q <= maxQ; q++) {
-                const hex = hexStructure.hexes.find(h => h.q === q && h.r === r);
-                if (hex) {
-                    line += hex.type + "   ";
-                } else {
-                    line += ".   ";
-                }
-            }
-            
-            lines.push(line);
-        }
-        
-        return lines.join('\n');
+
+    return lines.join('\n');
+  }
+
+  // Render DNA structure
+  static renderDNA(topSequence, bottomSequence) {
+    if (topSequence.length !== bottomSequence.length) {
+      return 'ERROR: Top and bottom sequences must be same length';
     }
+
+    const length = topSequence.length;
+
+    // Build top line with directional markers and <> around bases
+    let topLine = '3\'-' + topSequence.split('').map(b => '<' + b + '>').join('-') + '-5\'';
+
+    // Build middle line with hydrogen bonds
+    // G-C pairs have 3 hydrogen bonds (|||), A-T pairs have 2 hydrogen bonds (| |)
+    let middleLine = '   ';  // Offset for alignment
+    for (let i = 0; i < length; i++) {
+      const topBase = topSequence[i];
+      const bottomBase = bottomSequence[i];
+
+      // Determine hydrogen bond representation
+      let bond;
+      if ((topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')) {
+        bond = '|||';  // 3 hydrogen bonds
+      } else {
+        bond = '| |';  // 2 hydrogen bonds (A-T or other pairs)
+      }
+
+      middleLine += bond;
+      if (i < length - 1) {
+        middleLine += ' ';
+      }
+    }
+
+    // Build bottom line with directional markers and <> around bases
+    let bottomLine = '5\'-' + bottomSequence.split('').map(b => '<' + b + '>').join('-') + '-3\'';
+
+    return topLine + '\n' + middleLine + '\n' + bottomLine;
+  }
+    
+  // Render RNA structure (straight)
+  static renderRNA(sequence) {
+    const wrappedSequence = this.wrapRNABases(sequence);
+    return this.renderSequence(wrappedSequence, '5\'-', '-3\'');
+  }
+    
+  // Render RNA with 60° bend
+  static renderRNAWithBend(sequence, bendPosition) {
+    const wrappedSequence = this.wrapRNABases(sequence);
+    return this.renderSequenceWithBend(wrappedSequence, bendPosition, 60, '5\'-', '-3\'');
+  }
+    
+  // Render protein structure (straight, unfolded)
+  static renderProtein(aminoAcidSequence) {
+    // aminoAcidSequence is like "S-E60-BA-RPF-C60"
+    return this.renderSequence(aminoAcidSequence, 'N-', '-C');
+  }
+    
+  // Render protein with bends
+  static renderProteinWithBend(aminoAcidSequence, bendPosition, bendAngle) {
+    return this.renderSequenceWithBend(aminoAcidSequence, bendPosition, bendAngle, 'N-', '-C');
+  }
+    
 }
 
-// Example usage and tests
-function testASCIIRenderer() {
-    console.log("=== DNA Structure ===");
-    console.log(ASCIIRenderer.renderDNA("ACGT", "TGCA"));
-    console.log();
-    
-    console.log("=== RNA Structure (straight) ===");
-    console.log(ASCIIRenderer.renderRNA("ACGUA"));
-    console.log();
-    
-    console.log("=== RNA Structure (with bend at position 2) ===");
-    console.log(ASCIIRenderer.renderRNAWithBend("ACGUA", 2));
-    console.log();
-    
-    console.log("=== Protein Structure (straight) ===");
-    console.log(ASCIIRenderer.renderProtein("S-E60-BA-RPF-C60"));
-    console.log();
-    
-    console.log("=== Protein Structure (with 60° bend at position 2) ===");
-    console.log(ASCIIRenderer.renderProteinWithBend("S-E60-BA-RPF-C60", 2, 60));
-    console.log();
-    
-    console.log("=== Hex Grid (DNA) ===");
-    const dnaHexes = {
-        hexes: [
-            { q: 0, r: 0, type: 'A' },
-            { q: 1, r: 0, type: 'C' },
-            { q: 2, r: 0, type: 'G' },
-            { q: 3, r: 0, type: 'T' },
-            { q: 0, r: 1, type: '╳' },
-            { q: 1, r: 1, type: '╳' },
-            { q: 2, r: 1, type: '╳' },
-            { q: 0, r: 2, type: 'T' },
-            { q: 1, r: 2, type: 'G' },
-            { q: 2, r: 2, type: 'C' },
-            { q: 3, r: 2, type: 'A' }
-        ]
-    };
-    console.log(ASCIIRenderer.renderHexGrid(dnaHexes));
-}
+// ES Module export
+export default ASCIIRenderer;
 
-// Node.js export
+// CommonJS export for compatibility
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ASCIIRenderer;
+  module.exports = ASCIIRenderer;
 }
