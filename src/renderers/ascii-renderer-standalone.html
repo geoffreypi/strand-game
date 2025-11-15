@@ -300,24 +300,48 @@
         function runExamples() {
             const examples = document.getElementById('examples');
             
-            let html = '';
+            // Clear existing content
+            examples.innerHTML = '';
             
-            html += '<h3>DNA Structure</h3>';
-            html += '<pre>' + ASCIIRenderer.renderDNA("ACGT", "TGCA") + '</pre>';
+            // DNA Structure
+            const dnaTitle = document.createElement('h3');
+            dnaTitle.textContent = 'DNA Structure';
+            examples.appendChild(dnaTitle);
+            const dnaPre = document.createElement('pre');
+            dnaPre.textContent = ASCIIRenderer.renderDNA("ACGT", "TGCA");
+            examples.appendChild(dnaPre);
             
-            html += '<h3>RNA Structure (straight)</h3>';
-            html += '<pre>' + ASCIIRenderer.renderRNA("ACGUA") + '</pre>';
+            // RNA Structure (straight)
+            const rnaTitle = document.createElement('h3');
+            rnaTitle.textContent = 'RNA Structure (straight)';
+            examples.appendChild(rnaTitle);
+            const rnaPre = document.createElement('pre');
+            rnaPre.textContent = ASCIIRenderer.renderRNA("ACGUA");
+            examples.appendChild(rnaPre);
             
-            html += '<h3>RNA Structure (with 60° bend at position 2)</h3>';
-            html += '<pre>' + ASCIIRenderer.renderRNAWithBend("ACGUA", 2) + '</pre>';
+            // RNA Structure (bent)
+            const rnaBendTitle = document.createElement('h3');
+            rnaBendTitle.textContent = 'RNA Structure (with 60° bend at position 2)';
+            examples.appendChild(rnaBendTitle);
+            const rnaBendPre = document.createElement('pre');
+            rnaBendPre.textContent = ASCIIRenderer.renderRNAWithBend("ACGUA", 2);
+            examples.appendChild(rnaBendPre);
             
-            html += '<h3>Protein Structure (straight)</h3>';
-            html += '<pre>' + ASCIIRenderer.renderProtein("STR-EX6-BTA-RPF-CP6") + '</pre>';
+            // Protein Structure (straight)
+            const proteinTitle = document.createElement('h3');
+            proteinTitle.textContent = 'Protein Structure (straight)';
+            examples.appendChild(proteinTitle);
+            const proteinPre = document.createElement('pre');
+            proteinPre.textContent = ASCIIRenderer.renderProtein("STR-EX6-BTA-RPF-CP6");
+            examples.appendChild(proteinPre);
             
-            html += '<h3>Protein Structure (with 60° bend at position 2)</h3>';
-            html += '<pre>' + ASCIIRenderer.renderProteinWithBend("STR-EX6-BTA-RPF-CP6", 2, 60) + '</pre>';
-            
-            examples.innerHTML = html;
+            // Protein Structure (bent)
+            const proteinBendTitle = document.createElement('h3');
+            proteinBendTitle.textContent = 'Protein Structure (with 60° bend at position 2)';
+            examples.appendChild(proteinBendTitle);
+            const proteinBendPre = document.createElement('pre');
+            proteinBendPre.textContent = ASCIIRenderer.renderProteinWithBend("STR-EX6-BTA-RPF-CP6", 2, 60);
+            examples.appendChild(proteinBendPre);
         }
 
         // Custom renderers
