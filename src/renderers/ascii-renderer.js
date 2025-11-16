@@ -1,5 +1,8 @@
 // ASCII Renderer - Fast text-based visualization of molecular structures
 // Usage: Quick debugging and structure verification
+// This version uses the hex layout algorithm for unlimited bend support
+
+import { sequenceToHexGrid } from '../core/hex-layout.js';
 
 class ASCIIRenderer {
 
@@ -13,85 +16,195 @@ class ASCIIRenderer {
     return prefix + sequence + suffix;
   }
 
-  // Helper: Render a sequence with a bend (generic for RNA and proteins)
-  static renderSequenceWithBend(sequence, bendPosition, bendAngle, prefix, suffix) {
-    const elements = sequence.split('-');
-
-    if (bendPosition < 0 || bendPosition >= elements.length - 1) {
-      return 'ERROR: Invalid bend position';
+  // Helper: Convert hex grid to ASCII with exact original spacing
+  static hexGridToASCII(hexes, prefix, suffix) {
+    if (!hexes || hexes.length === 0) {
+      return prefix + suffix;
     }
 
-    let lines = [];
+    // For straight sequences (all hexes in a line)
+    const allStraight = hexes.every((hex, i) => {
+      if (i === 0) return true;
+      return hex.r === hexes[0].r && hex.q === hexes[0].q + i;
+    });
 
-    // Before bend
-    let beforeBend = elements.slice(0, bendPosition + 1);
-    let firstLine = prefix + beforeBend.join('-');
-    lines.push(firstLine);
+    if (allStraight) {
+      const sequence = hexes.map(h => h.type).join('-');
+      return prefix + sequence + suffix;
+    }
 
-    // Determine bend character
-    let bendChar = bendAngle === 60 ? '\\' : '/';
+    // For sequences with bends, use canvas-based rendering
+    const canvas = new Map();
+    let currentRow = 0;
+    let currentCol = 0;
 
-    // Calculate starting column: last character is at index (length - 1)
-    let lastCharIndex = firstLine.length - 1;
+    for (let i = 0; i < hexes.length; i++) {
+      const hex = hexes[i];
+      const isFirst = i === 0;
+      const isLast = i === hexes.length - 1;
 
-    // After bend - position bend chars to point to centers of elements
-    let afterBend = elements.slice(bendPosition + 1);
+      // Build the element text
+      let elementText = hex.type;
+      if (isFirst) elementText = prefix + elementText;
+      if (isLast) elementText = elementText + suffix;
 
-    // Find center position of last element before bend
-    let lastElement = elements[bendPosition];
-    let lastElementCenter = Math.floor(lastElement.length / 2);
-    let prevCenterPos = lastCharIndex - lastElement.length + 1 + lastElementCenter;
+      // Write element to canvas at current position
+      this.writeText(canvas, currentRow, currentCol, elementText);
 
-    // First pass: calculate all positions to find minimum
-    let positions = [];
-    let tempPrevCenterPos = prevCenterPos;
+      // If not last element, determine connector and next position
+      if (i < hexes.length - 1) {
+        const nextHex = hexes[i + 1];
+        const dq = nextHex.q - hex.q;
+        const dr = nextHex.r - hex.r;
 
-    for (let i = 0; i < afterBend.length; i++) {
-      let currentElement = afterBend[i];
-      let elementCenter = Math.floor(currentElement.length / 2);
+        // Calculate using EXACT original algorithm
+        const lastElement = hex.type;
+        const lastElementCenter = Math.floor(lastElement.length / 2);
+        const lastCharIndex = currentCol + elementText.length - 1;
+        const prevCenterPos = lastCharIndex - lastElement.length + 1 + lastElementCenter;
 
-      let bendCharPos, currentCenterPos, elementStartPos;
+        // Determine connector character and movement based on hex direction
+        const movement = this.getMovementFromHexDelta(dq, dr, prevCenterPos, nextHex.type);
 
-      if (bendAngle === 60) {
-        bendCharPos = tempPrevCenterPos + 1;
-        currentCenterPos = bendCharPos + 1;
-        elementStartPos = currentCenterPos - elementCenter;
-      } else {
-        bendCharPos = tempPrevCenterPos - 1;
-        currentCenterPos = bendCharPos - 1;
-        elementStartPos = currentCenterPos - elementCenter;
+        if (movement.connector) {
+          // Write connector (relative to current row)
+          this.writeText(canvas, currentRow + movement.connectorRow, movement.connectorCol, movement.connector);
+
+          // Move to next element position (relative to current row)
+          currentRow = currentRow + movement.nextRow;
+          currentCol = movement.nextCol;
+        } else if (movement.isWest) {
+          // West (straight left) - next element goes to the LEFT
+          const nextElementWidth = nextHex.type.length;
+          // Place next element to the left with a dash between
+          currentCol = currentCol - 1 - nextElementWidth; // Move left (dash + element width)
+          this.writeText(canvas, currentRow, currentCol + nextElementWidth, '-');
+        } else {
+          // East (straight right) - add dash to the RIGHT
+          this.writeText(canvas, currentRow, currentCol + elementText.length, '-');
+          currentCol += elementText.length + 1; // +1 for the dash
+        }
       }
-
-      positions.push({ bendCharPos, elementStartPos, element: currentElement, isLast: i === afterBend.length - 1 });
-      tempPrevCenterPos = currentCenterPos;
     }
 
-    // Find minimum position
-    let minPos = 0;
-    for (let pos of positions) {
-      minPos = Math.min(minPos, pos.bendCharPos, pos.elementStartPos);
+    // Convert canvas to string
+    return this.canvasToString(canvas);
+  }
+
+  // Get movement based on hex coordinate delta (matching original algorithm)
+  static getMovementFromHexDelta(dq, dr, prevCenterPos, nextElementType) {
+    const nextElementCenter = Math.floor(nextElementType.length / 2);
+
+    // East (straight right) - no connector, just dash
+    if (dq === 1 && dr === 0) {
+      return { connector: null };
     }
 
-    // Apply offset if needed (if minPos is negative, shift everything right)
-    let offset = minPos < 0 ? -minPos : 0;
+    // Southeast (60° right/down) - backslash
+    if (dq === 0 && dr === 1) {
+      const bendCharPos = prevCenterPos + 1;
+      const currentCenterPos = bendCharPos + 1;
+      const elementStartPos = currentCenterPos - nextElementCenter;
 
-    // If we need to shift, also shift the first line
-    if (offset > 0) {
-      lines[0] = ' '.repeat(offset) + lines[0];
+      return {
+        connector: '\\',
+        connectorRow: 1,  // Relative to current row
+        connectorCol: bendCharPos,
+        nextRow: 2,
+        nextCol: elementStartPos
+      };
     }
 
-    // Second pass: render with offset
-    for (let pos of positions) {
-      let bendIndent = ' '.repeat(pos.bendCharPos + offset);
-      let elementIndent = ' '.repeat(pos.elementStartPos + offset);
+    // Southwest (120° right/down) - forward slash
+    if (dq === -1 && dr === 1) {
+      const bendCharPos = prevCenterPos - 1;
+      const currentCenterPos = bendCharPos - 1;
+      const elementStartPos = currentCenterPos - nextElementCenter;
 
-      lines.push(bendIndent + bendChar);
+      return {
+        connector: '/',
+        connectorRow: 1,  // Relative to current row
+        connectorCol: bendCharPos,
+        nextRow: 2,
+        nextCol: elementStartPos
+      };
+    }
 
-      if (pos.isLast) {
-        lines.push(elementIndent + pos.element + suffix);
-      } else {
-        lines.push(elementIndent + pos.element);
+    // West (straight left) - going left
+    if (dq === -1 && dr === 0) {
+      return { connector: null, isWest: true };
+    }
+
+    // Northwest (60° up-left) - backslash going up-left
+    if (dq === 0 && dr === -1) {
+      const bendCharPos = prevCenterPos - 1;
+      const currentCenterPos = bendCharPos - 1;
+      const elementStartPos = currentCenterPos - nextElementCenter;
+
+      return {
+        connector: '\\',
+        connectorRow: -1,
+        connectorCol: bendCharPos,
+        nextRow: -2,
+        nextCol: elementStartPos
+      };
+    }
+
+    // Northeast (120° up-right) - forward slash going up-right
+    if (dq === 1 && dr === -1) {
+      const bendCharPos = prevCenterPos + 1;
+      const currentCenterPos = bendCharPos + 1;
+      const elementStartPos = currentCenterPos - nextElementCenter;
+
+      return {
+        connector: '/',
+        connectorRow: -1,
+        connectorCol: bendCharPos,
+        nextRow: -2,
+        nextCol: elementStartPos
+      };
+    }
+
+    // Default: no connector
+    return { connector: null };
+  }
+
+  // Write text to canvas at specified position
+  static writeText(canvas, row, col, text) {
+    for (let i = 0; i < text.length; i++) {
+      const key = `${row},${col + i}`;
+      canvas.set(key, text[i]);
+    }
+  }
+
+  // Convert canvas map to string
+  static canvasToString(canvas) {
+    if (canvas.size === 0) return '';
+
+    // Find bounds
+    let minRow = Infinity, maxRow = -Infinity;
+    let minCol = Infinity, maxCol = -Infinity;
+
+    for (const key of canvas.keys()) {
+      const [row, col] = key.split(',').map(Number);
+      minRow = Math.min(minRow, row);
+      maxRow = Math.max(maxRow, row);
+      minCol = Math.min(minCol, col);
+      maxCol = Math.max(maxCol, col);
+    }
+
+    // Apply offset if minCol is negative
+    const offset = minCol < 0 ? -minCol : 0;
+
+    // Build output line by line
+    const lines = [];
+    for (let row = minRow; row <= maxRow; row++) {
+      let line = '';
+      for (let col = minCol + offset; col <= maxCol + offset; col++) {
+        const key = `${row},${col - offset}`;
+        line += canvas.get(key) || ' ';
       }
+      lines.push(line.trimEnd()); // Remove trailing spaces
     }
 
     return lines.join('\n');
@@ -134,30 +247,71 @@ class ASCIIRenderer {
 
     return topLine + '\n' + middleLine + '\n' + bottomLine;
   }
-    
+
   // Render RNA structure (straight)
   static renderRNA(sequence) {
     const wrappedSequence = this.wrapRNABases(sequence);
     return this.renderSequence(wrappedSequence, '5\'-', '-3\'');
   }
-    
+
   // Render RNA with 60° bend
   static renderRNAWithBend(sequence, bendPosition) {
     const wrappedSequence = this.wrapRNABases(sequence);
-    return this.renderSequenceWithBend(wrappedSequence, bendPosition, 60, '5\'-', '-3\'');
+    const elements = wrappedSequence.split('-');
+
+    if (bendPosition < 0 || bendPosition >= elements.length - 1) {
+      return 'ERROR: Invalid bend position';
+    }
+
+    try {
+      // Convert to hex grid with single 60° bend
+      const plainSequence = sequence; // Keep original for hex conversion
+      const bends = [{ position: bendPosition, angle: 60, direction: 'right' }];
+      const hexGrid = sequenceToHexGrid(plainSequence, bends);
+
+      // Map hex types back to wrapped format
+      const wrappedHexes = hexGrid.map((hex, i) => ({
+        ...hex,
+        type: elements[i]
+      }));
+
+      return this.hexGridToASCII(wrappedHexes, '5\'-', '-3\'');
+    } catch (error) {
+      if (error.message.includes('Overlap detected')) {
+        return 'ERROR: Sequence overlap detected';
+      }
+      throw error;
+    }
   }
-    
+
   // Render protein structure (straight, unfolded)
   static renderProtein(aminoAcidSequence) {
     // aminoAcidSequence is like "S-E60-BA-RPF-C60"
     return this.renderSequence(aminoAcidSequence, 'N-', '-C');
   }
-    
+
   // Render protein with bends
   static renderProteinWithBend(aminoAcidSequence, bendPosition, bendAngle) {
-    return this.renderSequenceWithBend(aminoAcidSequence, bendPosition, bendAngle, 'N-', '-C');
+    const elements = aminoAcidSequence.split('-');
+
+    if (bendPosition < 0 || bendPosition >= elements.length - 1) {
+      return 'ERROR: Invalid bend position';
+    }
+
+    try {
+      // Convert to hex grid with single bend
+      const bends = [{ position: bendPosition, angle: bendAngle, direction: 'right' }];
+      const hexGrid = sequenceToHexGrid(aminoAcidSequence, bends);
+
+      return this.hexGridToASCII(hexGrid, 'N-', '-C');
+    } catch (error) {
+      if (error.message.includes('Overlap detected')) {
+        return 'ERROR: Sequence overlap detected';
+      }
+      throw error;
+    }
   }
-    
+
 }
 
 // ES Module export

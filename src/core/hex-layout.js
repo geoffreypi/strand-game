@@ -5,11 +5,12 @@
  * Convert a sequence with bends into hex grid coordinates
  * @param {string} sequence - e.g., "STR-EX6-BTA-RPF-CP6" or "ACGU"
  * @param {Array} bends - [{position: 2, angle: 60, direction: 'right'}, ...]
- * @returns {Array} [{q, r, type}, ...]
+ * @returns {Array} [{q, r, type}, ...] or throws error if overlap detected
  */
 function sequenceToHexGrid(sequence, bends = []) {
   const elements = sequence.includes('-') ? sequence.split('-') : sequence.split('');
   const hexes = [];
+  const occupiedPositions = new Map();  // Track occupied positions
 
   // Track current position and direction
   let currentQ = 0;
@@ -17,6 +18,16 @@ function sequenceToHexGrid(sequence, bends = []) {
   let currentDirection = 0;  // 0-5 (hex directions, 0 = right/east)
 
   for (let i = 0; i < elements.length; i++) {
+    // Check for overlap
+    const posKey = `${currentQ},${currentR}`;
+    if (occupiedPositions.has(posKey)) {
+      const prevElement = occupiedPositions.get(posKey);
+      throw new Error(`Overlap detected: element ${i} (${elements[i]}) overlaps with element ${prevElement.index} (${prevElement.type}) at position (${currentQ}, ${currentR})`);
+    }
+
+    // Mark position as occupied
+    occupiedPositions.set(posKey, { index: i, type: elements[i] });
+
     // Place current element
     hexes.push({
       q: currentQ,

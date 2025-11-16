@@ -1,11 +1,9 @@
 // Hex to ASCII - Visualize hex grids as ASCII art
 // Usage: Debug visualization and testing
-// This module converts hex grids back to sequences and uses the original ASCII renderer
-
-import ASCIIRenderer from '../renderers/ascii-renderer.js';
+// This module renders hex grids using the original ASCII renderer's visual style
 
 /**
- * Convert hex grid back to sequence and bends, then render with ASCII renderer
+ * Render a hex grid as ASCII art (matching original renderer style)
  * @param {Array} hexes - [{q, r, type}, ...]
  * @param {Object} options - {prefix: 'N-', suffix: '-C'}
  * @returns {string} ASCII representation
@@ -17,106 +15,166 @@ function hexGridToASCII(hexes, options = {}) {
 
   const { prefix = '', suffix = '' } = options;
 
-  // Extract sequence from hex grid
-  const sequence = hexes.map(h => h.type).join('-');
+  // Build a 2D canvas to render into
+  const canvas = new Map(); // key: "row,col" -> character
 
-  // Detect bends by analyzing direction changes
-  const bends = detectBends(hexes);
+  let currentRow = 0;
+  let currentCol = 0;
 
-  // If no bends, render straight
-  if (bends.length === 0) {
-    return ASCIIRenderer.renderSequence(sequence, prefix, suffix);
-  }
+  for (let i = 0; i < hexes.length; i++) {
+    const hex = hexes[i];
+    const isFirst = i === 0;
+    const isLast = i === hexes.length - 1;
 
-  // If only one bend, use the ASCII renderer's renderSequenceWithBend
-  if (bends.length === 1) {
-    const bend = bends[0];
-    return ASCIIRenderer.renderSequenceWithBend(
-      sequence,
-      bend.position,
-      bend.angle,
-      prefix,
-      suffix
-    );
-  }
+    // Build the element text
+    let elementText = hex.type;
+    if (isFirst) elementText = prefix + elementText;
+    if (isLast) elementText = elementText + suffix;
 
-  // Multiple bends: render each segment separately and combine
-  // This is a more complex case - for now, render the first bend only
-  // TODO: Support multiple bends properly
-  const firstBend = bends[0];
-  return ASCIIRenderer.renderSequenceWithBend(
-    sequence,
-    firstBend.position,
-    firstBend.angle,
-    prefix,
-    suffix
-  );
-}
+    // Write element to canvas at current position
+    writeText(canvas, currentRow, currentCol, elementText);
 
-/**
- * Detect bends from hex grid by analyzing direction changes
- * @param {Array} hexes - [{q, r, type}, ...]
- * @returns {Array} [{position, angle, direction}, ...]
- */
-function detectBends(hexes) {
-  if (hexes.length < 3) return [];
+    // If not last element, determine connector and next position
+    if (i < hexes.length - 1) {
+      const nextHex = hexes[i + 1];
+      const dq = nextHex.q - hex.q;
+      const dr = nextHex.r - hex.r;
 
-  const bends = [];
-  let prevDirection = null;
+      // Determine connector character and movement
+      const { connector, rowDelta, colDelta } = getConnectorAndMovement(
+        dq, dr, elementText.length
+      );
 
-  for (let i = 0; i < hexes.length - 1; i++) {
-    const current = hexes[i];
-    const next = hexes[i + 1];
+      if (connector) {
+        // Calculate center position of current element
+        const elementCenter = Math.floor(elementText.length / 2);
+        const connectorCol = currentCol + elementCenter + 1;
+        const connectorRow = currentRow + 1;
 
-    const dq = next.q - current.q;
-    const dr = next.r - current.r;
+        // Write connector
+        writeText(canvas, connectorRow, connectorCol, connector);
 
-    // Convert delta to direction (0-5)
-    const direction = deltaToDirection(dq, dr);
-
-    if (prevDirection !== null && direction !== prevDirection) {
-      // Direction changed - we have a bend
-      const turnAmount = (direction - prevDirection + 6) % 6;
-
-      // Determine angle (1 step = 60°, 2 steps = 120°)
-      let angle;
-      if (turnAmount === 1 || turnAmount === 5) {
-        angle = 60;
-      } else if (turnAmount === 2 || turnAmount === 4) {
-        angle = 120;
+        // Move to next element position
+        currentRow += rowDelta;
+        currentCol += colDelta;
       } else {
-        // 180° turn or more - skip for now
-        prevDirection = direction;
-        continue;
+        // Horizontal continuation (no bend) - add dash
+        writeText(canvas, currentRow, currentCol + elementText.length, '-');
+        currentCol += elementText.length + 1; // +1 for the dash
       }
-
-      bends.push({
-        position: i - 1,  // Bend occurs after previous element
-        angle: angle,
-        direction: turnAmount <= 3 ? 'right' : 'left'
-      });
     }
-
-    prevDirection = direction;
   }
 
-  return bends;
+  // Convert canvas to string
+  return canvasToString(canvas);
 }
 
 /**
- * Convert hex delta to direction (0-5)
+ * Get connector character and movement delta based on hex direction
  * @param {number} dq
  * @param {number} dr
- * @returns {number} Direction 0-5
+ * @param {number} currentElementWidth
+ * @returns {Object} {connector, rowDelta, colDelta}
  */
-function deltaToDirection(dq, dr) {
-  if (dq === 1 && dr === 0) return 0;   // East
-  if (dq === 0 && dr === 1) return 1;   // Southeast
-  if (dq === -1 && dr === 1) return 2;  // Southwest
-  if (dq === -1 && dr === 0) return 3;  // West
-  if (dq === 0 && dr === -1) return 4;  // Northwest
-  if (dq === 1 && dr === -1) return 5;  // Northeast
-  return 0; // Default to east
+function getConnectorAndMovement(dq, dr, currentElementWidth) {
+  const elementCenter = Math.floor(currentElementWidth / 2);
+
+  // East (straight right) - no connector, just dash
+  if (dq === 1 && dr === 0) {
+    return { connector: null, rowDelta: 0, colDelta: 0 };
+  }
+
+  // Southeast (60° right/down) - backslash
+  if (dq === 0 && dr === 1) {
+    return {
+      connector: '\\',
+      rowDelta: 2,
+      colDelta: elementCenter + 2
+    };
+  }
+
+  // Southwest (120° right/down) - forward slash
+  if (dq === -1 && dr === 1) {
+    return {
+      connector: '/',
+      rowDelta: 2,
+      colDelta: -(elementCenter + 2)  // Move LEFT in ASCII space
+    };
+  }
+
+  // West (straight left) - dash (unusual in sequences)
+  if (dq === -1 && dr === 0) {
+    return { connector: null, rowDelta: 0, colDelta: -currentElementWidth - 1 };
+  }
+
+  // Northwest (60° left/up) - forward slash
+  if (dq === 0 && dr === -1) {
+    return {
+      connector: '/',
+      rowDelta: -2,  // Moving UP
+      colDelta: -(elementCenter + 2)  // Move LEFT in ASCII space
+    };
+  }
+
+  // Northeast (120° left/up) - backslash
+  if (dq === 1 && dr === -1) {
+    return {
+      connector: '\\',
+      rowDelta: -2,  // Moving UP
+      colDelta: elementCenter + 2
+    };
+  }
+
+  // Default: no connector
+  return { connector: null, rowDelta: 0, colDelta: 0 };
+}
+
+/**
+ * Write text to canvas at specified position
+ * @param {Map} canvas
+ * @param {number} row
+ * @param {number} col
+ * @param {string} text
+ */
+function writeText(canvas, row, col, text) {
+  for (let i = 0; i < text.length; i++) {
+    const key = `${row},${col + i}`;
+    canvas.set(key, text[i]);
+  }
+}
+
+/**
+ * Convert canvas map to string
+ * @param {Map} canvas - Map of "row,col" -> character
+ * @returns {string}
+ */
+function canvasToString(canvas) {
+  if (canvas.size === 0) return '';
+
+  // Find bounds
+  let minRow = Infinity, maxRow = -Infinity;
+  let minCol = Infinity, maxCol = -Infinity;
+
+  for (const key of canvas.keys()) {
+    const [row, col] = key.split(',').map(Number);
+    minRow = Math.min(minRow, row);
+    maxRow = Math.max(maxRow, row);
+    minCol = Math.min(minCol, col);
+    maxCol = Math.max(maxCol, col);
+  }
+
+  // Build output line by line
+  const lines = [];
+  for (let row = minRow; row <= maxRow; row++) {
+    let line = '';
+    for (let col = minCol; col <= maxCol; col++) {
+      const key = `${row},${col}`;
+      line += canvas.get(key) || ' ';
+    }
+    lines.push(line.trimEnd()); // Remove trailing spaces
+  }
+
+  return lines.join('\n');
 }
 
 /**
