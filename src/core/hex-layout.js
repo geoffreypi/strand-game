@@ -135,8 +135,6 @@ function dnaToHexGrid(topStrand, bottomStrand, bends = []) {
         if (is120Bend) {
           // 120° right bend - complex skip pattern to maintain gap
           // Skip 2 horizontally (current direction) - track these as stretch positions
-          const stretch1Q = topQ;
-          const stretch1R = topR;
           [topQ, topR] = moveInDirection(topQ, topR, currentDirection);
           topStretches.push({ q: topQ, r: topR, direction: currentDirection });
 
