@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { sequenceToHexGrid, applyBend, moveInDirection, getNeighbors, hexDistance } from './core/hex-layout.js';
+import { sequenceToHexGrid, dnaToHexGrid, applyBend, moveInDirection, getNeighbors, hexDistance } from './core/hex-layout.js';
 import ASCIIRenderer from './renderers/ascii-renderer.js';
 
 describe('Unified Molecular Rendering Tests', () => {
@@ -28,6 +28,263 @@ describe('Unified Molecular Rendering Tests', () => {
                        '   | |\n' +
                        '5\'-<T>-3\'';
       expect(result).toBe(expected);
+    });
+  });
+
+  // ===========================================================================
+  // DNA WITH BENDS - Hex positioning tests
+  // ===========================================================================
+
+  describe('DNA with bends (hex positioning)', () => {
+    test('validates complementary base pairs', () => {
+      // Valid pairs should work
+      expect(() => {
+        dnaToHexGrid('ACGT', 'TGCA', []);
+      }).not.toThrow();
+
+      // Non-complementary should throw
+      expect(() => {
+        dnaToHexGrid('ACGT', 'ACGT', []);
+      }).toThrow('Non-complementary base pair at position 0: A-A (expected A-T)');
+    });
+
+    test('rejects invalid bases', () => {
+      expect(() => {
+        dnaToHexGrid('ACXGT', 'TGXCA', []);
+      }).toThrow('Invalid base \'X\' at position 2 in top strand');
+    });
+
+    test('positions straight DNA correctly', () => {
+      const result = dnaToHexGrid('ACGT', 'TGCA', []);
+
+      // Top strand starts at (-1, 0) and moves East
+      expect(result.topHexes).toEqual([
+        { q: -1, r: 0, type: 'A' },
+        { q: 0, r: 0, type: 'C' },
+        { q: 1, r: 0, type: 'G' },
+        { q: 2, r: 0, type: 'T' }
+      ]);
+
+      // Bottom strand starts at (-2, 2) and moves East
+      expect(result.bottomHexes).toEqual([
+        { q: -2, r: 2, type: 'T' },
+        { q: -1, r: 2, type: 'G' },
+        { q: 0, r: 2, type: 'C' },
+        { q: 1, r: 2, type: 'A' }
+      ]);
+    });
+
+    test('positions DNA with 60° right bend correctly', () => {
+      const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 60, direction: 'right' }]);
+
+      // Top strand (outer): stretches with 2 skips around bend
+      expect(result.topHexes).toEqual([
+        { q: -1, r: 0, type: 'A' },
+        { q: 0, r: 0, type: 'C' },
+        { q: 1, r: 0, type: 'G' },
+        { q: 3, r: 0, type: 'T' },  // Skip (2,0)
+        { q: 3, r: 2, type: 'A' },  // Skip (3,1)
+        { q: 3, r: 3, type: 'C' },
+        { q: 3, r: 4, type: 'G' }
+      ]);
+
+      // Bottom strand (inner): normal 60° bend
+      expect(result.bottomHexes).toEqual([
+        { q: -2, r: 2, type: 'T' },
+        { q: -1, r: 2, type: 'G' },
+        { q: 0, r: 2, type: 'C' },
+        { q: 1, r: 2, type: 'A' },  // Apex of bend
+        { q: 1, r: 3, type: 'T' },
+        { q: 1, r: 4, type: 'G' },
+        { q: 1, r: 5, type: 'C' }
+      ]);
+    });
+
+    test('positions DNA with 60° left bend correctly', () => {
+      const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 60, direction: 'left' }]);
+
+      // Top strand (inner): normal 60° bend
+      expect(result.topHexes).toEqual([
+        { q: -1, r: 0, type: 'A' },
+        { q: 0, r: 0, type: 'C' },
+        { q: 1, r: 0, type: 'G' },
+        { q: 2, r: 0, type: 'T' },  // Apex of bend
+        { q: 3, r: -1, type: 'A' },
+        { q: 4, r: -2, type: 'C' },
+        { q: 5, r: -3, type: 'G' }
+      ]);
+
+      // Bottom strand (outer): stretches with 2 skips around bend
+      expect(result.bottomHexes).toEqual([
+        { q: -2, r: 2, type: 'T' },
+        { q: -1, r: 2, type: 'G' },
+        { q: 0, r: 2, type: 'C' },
+        { q: 2, r: 2, type: 'A' },  // Skip (1,2)
+        { q: 4, r: 0, type: 'T' },  // Skip (3,1)
+        { q: 5, r: -1, type: 'G' },
+        { q: 6, r: -2, type: 'C' }
+      ]);
+    });
+
+    test('positions DNA with 120° right bend correctly', () => {
+      const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 120, direction: 'right' }]);
+
+      // Top strand (outer): complex skip pattern (2 horizontal, 1 SE, then 1 SE + 2 SW)
+      expect(result.topHexes).toEqual([
+        { q: -1, r: 0, type: 'A' },
+        { q: 0, r: 0, type: 'C' },
+        { q: 1, r: 0, type: 'G' },
+        { q: 3, r: 1, type: 'T' },  // Corner base - only one at the bend
+        { q: 1, r: 4, type: 'A' },  // After skip: 1 SE + 2 SW
+        { q: 0, r: 5, type: 'C' },
+        { q: -1, r: 6, type: 'G' }
+      ]);
+
+      // Bottom strand (inner): normal 120° bend
+      expect(result.bottomHexes).toEqual([
+        { q: -2, r: 2, type: 'T' },
+        { q: -1, r: 2, type: 'G' },
+        { q: 0, r: 2, type: 'C' },
+        { q: 1, r: 2, type: 'A' },  // Apex of bend
+        { q: 0, r: 3, type: 'T' },
+        { q: -1, r: 4, type: 'G' },
+        { q: -2, r: 5, type: 'C' }
+      ]);
+    });
+
+    test('positions DNA with 120° left bend correctly', () => {
+      const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 120, direction: 'left' }]);
+
+      // Top strand (inner): normal 120° bend
+      expect(result.topHexes).toEqual([
+        { q: -1, r: 0, type: 'A' },
+        { q: 0, r: 0, type: 'C' },
+        { q: 1, r: 0, type: 'G' },
+        { q: 2, r: 0, type: 'T' },  // Apex of bend
+        { q: 2, r: -1, type: 'A' },
+        { q: 2, r: -2, type: 'C' },
+        { q: 2, r: -3, type: 'G' }
+      ]);
+
+      // Bottom strand (outer): complex skip pattern (2 horizontal, 1 NE, then 1 NE + 2 NW)
+      expect(result.bottomHexes).toEqual([
+        { q: -2, r: 2, type: 'T' },
+        { q: -1, r: 2, type: 'G' },
+        { q: 0, r: 2, type: 'C' },
+        { q: 3, r: 1, type: 'A' },  // Corner base - only one at the bend
+        { q: 4, r: -2, type: 'T' },  // After skip: 1 NE + 2 NW
+        { q: 4, r: -3, type: 'G' },
+        { q: 4, r: -4, type: 'C' }
+      ]);
+    });
+
+    test('positions DNA with 60° zigzag pattern (right-left-right)', () => {
+      const result = dnaToHexGrid('ACGTACGTAC', 'TGCATGCATG', [
+        { position: 2, angle: 60, direction: 'right' },
+        { position: 4, angle: 60, direction: 'left' },
+        { position: 6, angle: 60, direction: 'right' }
+      ]);
+
+      // Verify we have all 10 bases
+      expect(result.topHexes.length).toBe(10);
+      expect(result.bottomHexes.length).toBe(10);
+
+      // Verify first few bases to ensure zigzag pattern
+      expect(result.topHexes[0]).toEqual({ q: -1, r: 0, type: 'A' });
+      expect(result.topHexes[1]).toEqual({ q: 0, r: 0, type: 'C' });
+      expect(result.topHexes[2]).toEqual({ q: 1, r: 0, type: 'G' });
+
+      expect(result.bottomHexes[0]).toEqual({ q: -2, r: 2, type: 'T' });
+      expect(result.bottomHexes[1]).toEqual({ q: -1, r: 2, type: 'G' });
+      expect(result.bottomHexes[2]).toEqual({ q: 0, r: 2, type: 'C' });
+    });
+
+    test('positions DNA with 120° zigzag pattern (right-left)', () => {
+      const result = dnaToHexGrid('ACGTACGTAC', 'TGCATGCATG', [
+        { position: 2, angle: 120, direction: 'right' },
+        { position: 5, angle: 120, direction: 'left' }
+      ]);
+
+      // Verify we have all 10 bases
+      expect(result.topHexes.length).toBe(10);
+      expect(result.bottomHexes.length).toBe(10);
+
+      // Verify first few bases to ensure zigzag pattern
+      expect(result.topHexes[0]).toEqual({ q: -1, r: 0, type: 'A' });
+      expect(result.topHexes[1]).toEqual({ q: 0, r: 0, type: 'C' });
+      expect(result.topHexes[2]).toEqual({ q: 1, r: 0, type: 'G' });
+
+      expect(result.bottomHexes[0]).toEqual({ q: -2, r: 2, type: 'T' });
+      expect(result.bottomHexes[1]).toEqual({ q: -1, r: 2, type: 'G' });
+      expect(result.bottomHexes[2]).toEqual({ q: 0, r: 2, type: 'C' });
+    });
+
+    test('positions DNA with multiple bends correctly', () => {
+      const result = dnaToHexGrid('ACGTACGTAC', 'TGCATGCATG', [
+        { position: 2, angle: 60, direction: 'right' },
+        { position: 5, angle: 60, direction: 'left' }
+      ]);
+
+      expect(result.topHexes.length).toBe(10);
+      expect(result.bottomHexes.length).toBe(10);
+
+      // First bases should be in expected positions
+      expect(result.topHexes[0]).toEqual({ q: -1, r: 0, type: 'A' });
+      expect(result.bottomHexes[0]).toEqual({ q: -2, r: 2, type: 'T' });
+    });
+  });
+
+  // ===========================================================================
+  // DNA WITH BENDS - ASCII RENDERING
+  // ===========================================================================
+
+  describe('DNA with bends (ASCII rendering)', () => {
+    test('renders straight DNA with both strands', () => {
+      const ascii = ASCIIRenderer.renderDNAWithBends('AT', 'TA', []);
+
+      // Should have both strands with gap between them
+      expect(ascii).toContain('5\'-<A>-<T>-3\'');
+      expect(ascii).toContain('3\'-<T>-<A>-5\'');
+    });
+
+    test('renders DNA with 60° right bend', () => {
+      const ascii = ASCIIRenderer.renderDNAWithBends('ACGTACG', 'TGCATGC', [
+        { position: 2, angle: 60, direction: 'right' }
+      ]);
+
+      // Should have both strands
+      expect(ascii).toContain('5\'-');
+      expect(ascii).toContain('3\'-');
+      expect(ascii).toContain('-3\'');
+      expect(ascii).toContain('-5\'');
+
+      // Should contain backslashes for southeast bends
+      expect(ascii).toContain('\\');
+    });
+
+    test('renders DNA with 60° left bend', () => {
+      const ascii = ASCIIRenderer.renderDNAWithBends('ACGTACG', 'TGCATGC', [
+        { position: 2, angle: 60, direction: 'left' }
+      ]);
+
+      // Should have both strands
+      expect(ascii).toContain('5\'-');
+      expect(ascii).toContain('3\'-');
+
+      // Should contain forward slashes for northeast bends
+      expect(ascii).toContain('/');
+    });
+
+    test('returns error for non-complementary bases', () => {
+      const ascii = ASCIIRenderer.renderDNAWithBends('ACGT', 'ACGT', []);
+      expect(ascii).toContain('ERROR');
+      expect(ascii).toContain('complementary');
+    });
+
+    test('returns error for invalid bases', () => {
+      const ascii = ASCIIRenderer.renderDNAWithBends('ACXGT', 'TGXCA', []);
+      expect(ascii).toContain('ERROR');
+      expect(ascii).toContain('Invalid base');
     });
   });
 

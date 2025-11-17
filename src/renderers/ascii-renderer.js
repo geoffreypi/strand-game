@@ -2,7 +2,7 @@
 // Usage: Quick debugging and structure verification
 // This version uses the hex layout algorithm for unlimited bend support
 
-import { sequenceToHexGrid } from '../core/hex-layout.js';
+import { sequenceToHexGrid, dnaToHexGrid } from '../core/hex-layout.js';
 
 class ASCIIRenderer {
 
@@ -14,6 +14,20 @@ class ASCIIRenderer {
   // Helper: Render a straight sequence (generic for RNA and proteins)
   static renderSequence(sequence, prefix, suffix) {
     return prefix + sequence + suffix;
+  }
+
+  /**
+   * Convert hex coordinates (q, r) to absolute canvas position (row, col)
+   * For flat-top hexagons with 3-character elements like <A>
+   * @param {number} q - Hex q coordinate
+   * @param {number} r - Hex r coordinate
+   * @returns {Object} {row, col} - Absolute canvas position
+   */
+  static hexToCanvasCoords(q, r) {
+    return {
+      row: r * 2,
+      col: q * 4 + r * 2
+    };
   }
 
   // Helper: Convert hex grid to ASCII with exact original spacing
@@ -210,6 +224,99 @@ class ASCIIRenderer {
     return lines.join('\n');
   }
 
+  /**
+   * Render multiple sequences on the same canvas
+   * @param {Array} sequences - Array of sequence objects:
+   *   [{
+   *     hexes: [{q, r, type}, ...],
+   *     prefix: '5\'-',
+   *     suffix: '-3\'',
+   *     startOffset: {q: 0, r: 0}  // optional offset for positioning
+   *   }, ...]
+   * @returns {string} Combined ASCII rendering
+   */
+  static renderMultipleSequences(sequences) {
+    const canvas = new Map();
+    const occupiedPositions = new Map(); // Track overlaps
+
+    for (let seqIndex = 0; seqIndex < sequences.length; seqIndex++) {
+      const sequence = sequences[seqIndex];
+      const { hexes, prefix = '', suffix = '', startOffset = { q: 0, r: 0 } } = sequence;
+
+      if (!hexes || hexes.length === 0) continue;
+
+      // For each sequence, we need to:
+      // 1. Place elements at absolute positions (with startOffset)
+      // 2. Draw connectors between consecutive hexes in the same sequence
+
+      for (let i = 0; i < hexes.length; i++) {
+        const hex = hexes[i];
+        const isFirst = i === 0;
+        const isLast = i === hexes.length - 1;
+
+        // Apply start offset to get absolute hex coordinates
+        const absoluteQ = hex.q + startOffset.q;
+        const absoluteR = hex.r + startOffset.r;
+
+        // Check for overlap
+        const posKey = `${absoluteQ},${absoluteR}`;
+        if (occupiedPositions.has(posKey)) {
+          const prevSeq = occupiedPositions.get(posKey);
+          throw new Error(`Sequence overlap detected: sequence ${seqIndex} overlaps with sequence ${prevSeq.seqIndex} at position (${absoluteQ}, ${absoluteR})`);
+        }
+        occupiedPositions.set(posKey, { seqIndex, hexIndex: i });
+
+        // Convert to canvas coordinates (this is where the hex element starts, not prefix)
+        const { row, col } = this.hexToCanvasCoords(absoluteQ, absoluteR);
+
+        // Write prefix if first element (goes before the hex position)
+        if (isFirst && prefix) {
+          this.writeText(canvas, row, col - prefix.length, prefix);
+        }
+
+        // Write the hex element at its absolute position
+        this.writeText(canvas, row, col, hex.type);
+
+        // Write suffix if last element (goes after the hex)
+        if (isLast && suffix) {
+          this.writeText(canvas, row, col + hex.type.length, suffix);
+        }
+
+        // Draw connector to next hex in this sequence (if not last)
+        if (i < hexes.length - 1) {
+          const nextHex = hexes[i + 1];
+          const nextAbsoluteQ = nextHex.q + startOffset.q;
+          const nextAbsoluteR = nextHex.r + startOffset.r;
+
+          const dq = nextAbsoluteQ - absoluteQ;
+          const dr = nextAbsoluteR - absoluteR;
+
+          // Get next hex canvas position
+          const nextCanvas = this.hexToCanvasCoords(nextAbsoluteQ, nextAbsoluteR);
+
+          // Calculate center column of current element
+          const elementCenter = Math.floor(hex.type.length / 2);
+          const elementCenterCol = col + elementCenter;
+
+          const movement = this.getMovementFromHexDelta(dq, dr, elementCenterCol, nextHex.type);
+
+          if (movement.connector) {
+            // Write connector
+            this.writeText(canvas, row + movement.connectorRow, movement.connectorCol, movement.connector);
+          } else if (movement.isWest) {
+            // West direction - dash goes between elements
+            this.writeText(canvas, row, nextCanvas.col + nextHex.type.length, '-');
+          } else {
+            // East direction - dash goes between elements
+            this.writeText(canvas, row, col + hex.type.length, '-');
+          }
+        }
+      }
+    }
+
+    return this.canvasToString(canvas);
+  }
+
   // Render DNA structure
   static renderDNA(topSequence, bottomSequence) {
     if (topSequence.length !== bottomSequence.length) {
@@ -246,6 +353,183 @@ class ASCIIRenderer {
     let bottomLine = '5\'-' + bottomSequence.split('').map(b => '<' + b + '>').join('-') + '-3\'';
 
     return topLine + '\n' + middleLine + '\n' + bottomLine;
+  }
+
+  /**
+   * Render DNA with bends using hex grid layout
+   * @param {string} topStrand - Top strand sequence (e.g., "ACGT")
+   * @param {string} bottomStrand - Bottom strand sequence (e.g., "TGCA")
+   * @param {Array} bends - Array of bend objects [{position, angle, direction}, ...]
+   * @returns {string} ASCII rendering of DNA with bends
+   */
+  static renderDNAWithBends(topStrand, bottomStrand, bends = []) {
+    try {
+      // Convert DNA strands to hex grid (includes validation and stretch tracking)
+      const { topHexes, bottomHexes, topStretches, bottomStretches } = dnaToHexGrid(topStrand, bottomStrand, bends);
+
+      // Wrap bases in <> brackets
+      const wrappedTopHexes = topHexes.map(h => ({ ...h, type: '<' + h.type + '>' }));
+      const wrappedBottomHexes = bottomHexes.map(h => ({ ...h, type: '<' + h.type + '>' }));
+
+      // Render using specialized DNA renderer with stretches and cross-links
+      return this.renderDNAWithVisualization(
+        wrappedTopHexes,
+        wrappedBottomHexes,
+        topStretches,
+        bottomStretches,
+        topHexes,  // Original (unwrapped) for cross-link pairing
+        bottomHexes
+      );
+    } catch (error) {
+      if (error.message.includes('complementary') || error.message.includes('Invalid base')) {
+        return 'ERROR: ' + error.message;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Render DNA with visualization of stretches and cross-links
+   * @param {Array} topHexes - Wrapped top strand hexes
+   * @param {Array} bottomHexes - Wrapped bottom strand hexes
+   * @param {Array} topStretches - Stretch positions for top strand
+   * @param {Array} bottomStretches - Stretch positions for bottom strand
+   * @param {Array} topOriginal - Original (unwrapped) top hexes for pairing
+   * @param {Array} bottomOriginal - Original (unwrapped) bottom hexes for pairing
+   * @returns {string} ASCII rendering
+   */
+  static renderDNAWithVisualization(topHexes, bottomHexes, topStretches, bottomStretches, topOriginal, bottomOriginal) {
+    const canvas = new Map();
+
+    // Render the two DNA strands
+    this.renderStrandOnCanvas(canvas, topHexes, '5\'-', '-3\'', { q: 0, r: 0 });
+    this.renderStrandOnCanvas(canvas, bottomHexes, '3\'-', '-5\'', { q: 0, r: 0 });
+
+    // Render stretch indicators
+    this.renderStretchesOnCanvas(canvas, topStretches);
+    this.renderStretchesOnCanvas(canvas, bottomStretches);
+
+    // Render cross-links between base pairs
+    this.renderCrossLinksOnCanvas(canvas, topOriginal, bottomOriginal);
+
+    return this.canvasToString(canvas);
+  }
+
+  /**
+   * Render a single strand on canvas
+   */
+  static renderStrandOnCanvas(canvas, hexes, prefix, suffix, startOffset) {
+    for (let i = 0; i < hexes.length; i++) {
+      const hex = hexes[i];
+      const isFirst = i === 0;
+      const isLast = i === hexes.length - 1;
+
+      const absoluteQ = hex.q + startOffset.q;
+      const absoluteR = hex.r + startOffset.r;
+
+      const { row, col } = this.hexToCanvasCoords(absoluteQ, absoluteR);
+
+      // Write prefix if first element
+      if (isFirst && prefix) {
+        this.writeText(canvas, row, col - prefix.length, prefix);
+      }
+
+      // Write the hex element
+      this.writeText(canvas, row, col, hex.type);
+
+      // Write suffix if last element
+      if (isLast && suffix) {
+        this.writeText(canvas, row, col + hex.type.length, suffix);
+      }
+
+      // Draw connector to next hex (if not last)
+      if (i < hexes.length - 1) {
+        const nextHex = hexes[i + 1];
+        const nextAbsoluteQ = nextHex.q + startOffset.q;
+        const nextAbsoluteR = nextHex.r + startOffset.r;
+
+        const dq = nextAbsoluteQ - absoluteQ;
+        const dr = nextAbsoluteR - absoluteR;
+
+        const elementCenter = Math.floor(hex.type.length / 2);
+        const elementCenterCol = col + elementCenter;
+
+        const movement = this.getMovementFromHexDelta(dq, dr, elementCenterCol, nextHex.type);
+
+        if (movement.connector) {
+          this.writeText(canvas, row + movement.connectorRow, movement.connectorCol, movement.connector);
+        } else if (movement.isWest) {
+          const nextCanvas = this.hexToCanvasCoords(nextAbsoluteQ, nextAbsoluteR);
+          this.writeText(canvas, row, nextCanvas.col + nextHex.type.length, '-');
+        } else {
+          this.writeText(canvas, row, col + hex.type.length, '-');
+        }
+      }
+    }
+  }
+
+  /**
+   * Render stretch indicators on canvas
+   */
+  static renderStretchesOnCanvas(canvas, stretches) {
+    for (const stretch of stretches) {
+      const { row, col } = this.hexToCanvasCoords(stretch.q, stretch.r);
+      // Place '~' at the center of the stretch hex position
+      // Only write if the position is empty or has a space
+      const targetCol = col + 1;
+      const key = `${row},${targetCol}`;
+      if (!canvas.has(key) || canvas.get(key) === ' ' || canvas.get(key) === '-') {
+        this.writeText(canvas, row, targetCol, '~');
+      }
+    }
+  }
+
+  /**
+   * Render cross-links between base pairs
+   */
+  static renderCrossLinksOnCanvas(canvas, topHexes, bottomHexes) {
+    // For each base pair, draw ':' characters between them
+    for (let i = 0; i < topHexes.length; i++) {
+      const topHex = topHexes[i];
+      const bottomHex = bottomHexes[i];
+
+      const topCanvas = this.hexToCanvasCoords(topHex.q, topHex.r);
+      const bottomCanvas = this.hexToCanvasCoords(bottomHex.q, bottomHex.r);
+
+      // Draw ':' characters between the base pairs
+      // The center column of each base (for single-character bases)
+      const topCenterCol = topCanvas.col + 1;  // Center of <X>
+      const bottomCenterCol = bottomCanvas.col + 1;  // Center of <X>
+
+      // Determine which base is higher (smaller row number) and which is lower
+      const minRow = Math.min(topCanvas.row, bottomCanvas.row);
+      const maxRow = Math.max(topCanvas.row, bottomCanvas.row);
+      const upperCenterCol = topCanvas.row < bottomCanvas.row ? topCenterCol : bottomCenterCol;
+      const lowerCenterCol = topCanvas.row < bottomCanvas.row ? bottomCenterCol : topCenterCol;
+
+      // If they're in the same column, draw vertical line
+      if (topCenterCol === bottomCenterCol) {
+        for (let r = minRow + 1; r < maxRow; r++) {
+          const key = `${r},${topCenterCol}`;
+          if (!canvas.has(key) || canvas.get(key) === ' ') {
+            this.writeText(canvas, r, topCenterCol, ':');
+          }
+        }
+      } else {
+        // Draw diagonal or staggered line
+        const rowDiff = maxRow - minRow;
+        const colDiff = lowerCenterCol - upperCenterCol;
+
+        for (let step = 1; step < rowDiff; step++) {
+          const r = minRow + step;
+          const c = Math.round(upperCenterCol + (colDiff * step / rowDiff));
+          const key = `${r},${c}`;
+          if (!canvas.has(key) || canvas.get(key) === ' ') {
+            this.writeText(canvas, r, c, ':');
+          }
+        }
+      }
+    }
   }
 
   // Render RNA structure (straight)
