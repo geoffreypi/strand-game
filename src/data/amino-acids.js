@@ -99,7 +99,7 @@ export const AMINO_ACID_TYPES = {
     foldingPreference: null,
     preferredSteps: 0,
     charge: +1,  // +1 elementary charge
-    hydrophobicity: 'hydrophilic',  // Charged = hydrophilic
+    hydrophobicity: 'neutral',  // Neutral for cleaner electrostatic effects
     mass: 146,  // Da, like Lysine
     description: 'Positively charged, attracts negative charges'
   },
@@ -110,7 +110,7 @@ export const AMINO_ACID_TYPES = {
     foldingPreference: null,
     preferredSteps: 0,
     charge: -1,  // -1 elementary charge
-    hydrophobicity: 'hydrophilic',  // Charged = hydrophilic
+    hydrophobicity: 'neutral',  // Neutral for cleaner electrostatic effects
     mass: 133,  // Da, like Aspartic acid
     description: 'Negatively charged, attracts positive charges'
   },

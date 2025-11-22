@@ -353,13 +353,18 @@ function getNeighbors(q, r) {
  * @returns {number} Distance
  */
 function hexDistance(hex1, hex2) {
-  // Convert to cube coordinates for easier distance calculation
-  const s1 = -hex1.q - hex1.r;
-  const s2 = -hex2.q - hex2.r;
+  // Convert hex coordinates to Euclidean (cartesian) coordinates
+  // Hex layout: q is horizontal, r is diagonal (pointy-top hex grid)
+  // x = q + r/2, y = r * sqrt(3)/2
+  const x1 = hex1.q + hex1.r * 0.5;
+  const y1 = hex1.r * Math.sqrt(3) / 2;
+  const x2 = hex2.q + hex2.r * 0.5;
+  const y2 = hex2.r * Math.sqrt(3) / 2;
 
-  return (Math.abs(hex1.q - hex2.q) +
-          Math.abs(hex1.r - hex2.r) +
-          Math.abs(s1 - s2)) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 // ES Module export

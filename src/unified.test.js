@@ -1386,11 +1386,17 @@ describe('Unified Molecular Rendering Tests', () => {
     });
 
     test('calculates distance for diagonal', () => {
-      expect(hexDistance({ q: 0, r: 0 }, { q: 2, r: 2 })).toBe(4);
+      // Euclidean distance: x = q + r*0.5, y = r * sqrt(3)/2
+      // (0,0) -> x=0, y=0; (2,2) -> x=3, y=sqrt(3) ≈ 1.732
+      // dist = sqrt(9 + 3) = sqrt(12) ≈ 3.464
+      expect(hexDistance({ q: 0, r: 0 }, { q: 2, r: 2 })).toBeCloseTo(3.464, 2);
     });
 
     test('calculates distance with negative coordinates', () => {
-      expect(hexDistance({ q: -3, r: -2 }, { q: 1, r: 4 })).toBe(10);
+      // (-3,-2) -> x=-4, y=-sqrt(3); (1,4) -> x=3, y=2*sqrt(3)
+      // dx=7, dy=3*sqrt(3) ≈ 5.196
+      // dist = sqrt(49 + 27) = sqrt(76) ≈ 8.718
+      expect(hexDistance({ q: -3, r: -2 }, { q: 1, r: 4 })).toBeCloseTo(8.718, 2);
     });
 
     test('is symmetric', () => {

@@ -10,7 +10,7 @@
  */
 
 import { AMINO_ACID_TYPES, ENERGY_CONSTANTS, calculateFoldEnergy } from '../data/amino-acids.js';
-import { hexDistance } from '../core/hex-layout.js';
+import { hexDistance, sequenceToHexGrid } from '../core/hex-layout.js';
 
 /**
  * Calculate total energy of a protein in its current state
@@ -30,12 +30,20 @@ export function calculateProteinEnergy(protein) {
 
 /**
  * Electrostatic energy from charged amino acids
- * Coulomb potential: E = k * q1 * q2 / (ε * r)
- * Adjacent opposite charges = -1.0 eV
+ * 2D Coulomb potential: E = k * q1 * q2 * ln(r)
+ * (In 2D, the solution to Poisson's equation gives logarithmic potential)
+ *
+ * For opposite charges (q1*q2 = -1):
+ *   E = k * (-1) * ln(r) = -k * ln(r)
+ *   r=1: E = 0
+ *   r<1: E > 0 (closer = more negative = more attractive)
+ *   r>1: E < 0 (farther = less attractive)
+ *
+ * We scale k so that meaningful energy differences occur over our distance range.
  */
 export function calculateElectrostaticEnergy(protein) {
   let E = 0;
-  const { COULOMB_CONSTANT, DIELECTRIC } = ENERGY_CONSTANTS;
+  const { COULOMB_CONSTANT } = ENERGY_CONSTANTS;
 
   for (let i = 0; i < protein.aminoAcids.length; i++) {
     for (let j = i + 1; j < protein.aminoAcids.length; j++) {
@@ -50,8 +58,10 @@ export function calculateElectrostaticEnergy(protein) {
       const r = hexDistance(aa1.position, aa2.position);
 
       if (r > 0) {
-        // Coulomb's law
-        E += COULOMB_CONSTANT * q1 * q2 / (DIELECTRIC * r);
+        // 2D Coulomb potential: E = -k * q1 * q2 * ln(r)
+        // Opposite charges (q1*q2 < 0): E decreases as r decreases (attractive)
+        // Like charges (q1*q2 > 0): E increases as r decreases (repulsive)
+        E += -COULOMB_CONSTANT * q1 * q2 * Math.log(r);
       }
     }
   }
@@ -127,13 +137,15 @@ function calculateSolventExposure(protein, index) {
 export function calculateFoldingPreferenceEnergy(protein) {
   let E = 0;
 
-  // For each bend position in the protein
-  for (let i = 0; i < protein.folds.length; i++) {
-    const fold = protein.folds[i];
-    const aa = protein.aminoAcids[fold.position];
+  // For each amino acid (except first and last which can't bend)
+  for (let i = 1; i < protein.aminoAcids.length - 1; i++) {
+    const aa = protein.aminoAcids[i];
 
-    // Convert fold angle/direction to steps
-    const currentSteps = angleToSteps(fold.angle, fold.direction);
+    // Find if there's a fold at this position
+    const fold = protein.folds.find(f => f.position === i);
+
+    // Get current steps (0 if no fold = straight)
+    const currentSteps = fold ? angleToSteps(fold.angle, fold.direction) : 0;
 
     // Calculate energy based on angular distance from preferred
     E += calculateFoldEnergy(aa.type, currentSteps);
@@ -203,14 +215,67 @@ export function calculateStericEnergy(protein) {
 }
 
 /**
- * Calculate moment of inertia about center of mass for the whole chain
- * I = Σ m × r² where r is distance from center of mass
+ * Calculate reduced moment of inertia for a fold at the given position.
+ *
+ * When a fold occurs, both portions of the chain rotate in opposite directions
+ * (in the center-of-mass frame) to conserve angular momentum. The kinetic energy is:
+ *
+ *   E = ½ I_left ω_left² + ½ I_right ω_right²
+ *
+ * With angular momentum conservation and a relative rotation Δθ:
+ *
+ *   E = ½ Δθ² × (I_left × I_right) / (I_left + I_right)
+ *
+ * The reduced moment of inertia I_reduced = (I_left × I_right) / (I_left + I_right)
+ * is the rotational analog of reduced mass in two-body problems.
  *
  * @param {Object} protein - Protein with aminoAcids and their positions
- * @returns {number} Moment of inertia in Da·hex²
+ * @param {number} bendPosition - Position where the bend occurs (pivot point)
+ * @returns {number} Reduced moment of inertia in Da·hex²
  */
-export function calculateMomentOfInertia(protein) {
-  // Calculate center of mass
+export function calculateMomentOfInertia(protein, bendPosition = null) {
+  // If no bend position specified, use old behavior (whole chain about CoM)
+  if (bendPosition === null) {
+    return calculateMomentOfInertiaAboutCoM(protein);
+  }
+
+  const pivot = protein.aminoAcids[bendPosition];
+  if (!pivot) return 0;
+
+  const pivotPos = hexToCartesian(pivot.position);
+
+  // Calculate I_left: moment of inertia of residues 0 to bendPosition about pivot
+  let I_left = 0;
+  for (let i = 0; i <= bendPosition; i++) {
+    const aa = protein.aminoAcids[i];
+    const mass = AMINO_ACID_TYPES[aa.type]?.mass || 100;
+    const pos = hexToCartesian(aa.position);
+    const dx = pos.x - pivotPos.x;
+    const dy = pos.y - pivotPos.y;
+    I_left += mass * (dx * dx + dy * dy);
+  }
+
+  // Calculate I_right: moment of inertia of residues bendPosition+1 to end about pivot
+  let I_right = 0;
+  for (let i = bendPosition + 1; i < protein.aminoAcids.length; i++) {
+    const aa = protein.aminoAcids[i];
+    const mass = AMINO_ACID_TYPES[aa.type]?.mass || 100;
+    const pos = hexToCartesian(aa.position);
+    const dx = pos.x - pivotPos.x;
+    const dy = pos.y - pivotPos.y;
+    I_right += mass * (dx * dx + dy * dy);
+  }
+
+  // Reduced moment of inertia
+  if (I_left + I_right === 0) return 0;
+  return (I_left * I_right) / (I_left + I_right);
+}
+
+/**
+ * Calculate moment of inertia about center of mass for the whole chain
+ * (Legacy function, kept for compatibility)
+ */
+function calculateMomentOfInertiaAboutCoM(protein) {
   let totalMass = 0;
   let cx = 0, cy = 0;
 
@@ -225,7 +290,6 @@ export function calculateMomentOfInertia(protein) {
   const comX = cx / totalMass;
   const comY = cy / totalMass;
 
-  // Calculate moment of inertia about CoM
   let I = 0;
   for (const aa of protein.aminoAcids) {
     const mass = AMINO_ACID_TYPES[aa.type]?.mass || 100;
@@ -251,12 +315,16 @@ function hexToCartesian(pos) {
  * Calculate kinetic (rotational) barrier for a fold transition
  * E_a = 0.5 × ROTATIONAL_SCALE × I × ω²
  *
+ * Uses local rotation model: only the portion of the chain after the bend
+ * position contributes to the moment of inertia.
+ *
  * @param {Object} protein - Current protein state
  * @param {number} angleChange - Angle change in degrees
+ * @param {number} bendPosition - Position where the bend occurs
  * @returns {number} Activation energy in eV
  */
-export function calculateKineticBarrier(protein, angleChange) {
-  const I = calculateMomentOfInertia(protein);
+export function calculateKineticBarrier(protein, angleChange, bendPosition = null) {
+  const I = calculateMomentOfInertia(protein, bendPosition);
   const { ROTATIONAL_SCALE } = ENERGY_CONSTANTS;
 
   const angle_rad = angleChange * Math.PI / 180;
@@ -292,14 +360,80 @@ export function calculateTransitionRate(E_a_kinetic, deltaE, temperature = ENERG
 }
 
 /**
+ * Build a protein object with real hex positions from sequence and fold states
+ * @param {string[]} sequence - Array of amino acid type codes
+ * @param {number[]} foldStates - Array of fold states in steps notation
+ * @returns {Object} Protein object with aminoAcids (including positions) and folds
+ */
+export function buildProteinWithPositions(sequence, foldStates) {
+  const sequenceStr = sequence.join('-');
+  const bends = [];
+
+  for (let i = 1; i < foldStates.length - 1; i++) {
+    const steps = foldStates[i];
+    if (steps !== 0) {
+      bends.push({
+        position: i,
+        angle: Math.abs(steps) * 60,
+        direction: steps > 0 ? 'left' : 'right'
+      });
+    }
+  }
+
+  // Get hex positions (may throw on overlap)
+  const hexGrid = sequenceToHexGrid(sequenceStr, bends);
+
+  const aminoAcids = sequence.map((type, i) => ({
+    type,
+    position: { q: hexGrid[i].q, r: hexGrid[i].r }
+  }));
+
+  const folds = bends.map(b => ({
+    position: b.position,
+    angle: b.angle,
+    direction: b.direction
+  }));
+
+  return { aminoAcids, folds };
+}
+
+/**
+ * Calculate full protein energy including electrostatics
+ * @param {string[]} sequence - Array of amino acid type codes
+ * @param {number[]} foldStates - Array of fold states in steps notation
+ * @returns {number} Total energy in eV, or Infinity if configuration is invalid
+ */
+export function calculateFullEnergy(sequence, foldStates) {
+  try {
+    const protein = buildProteinWithPositions(sequence, foldStates);
+    return calculateProteinEnergy(protein);
+  } catch (error) {
+    if (error.message.includes('Overlap')) {
+      return Infinity;  // Invalid configuration
+    }
+    throw error;
+  }
+}
+
+/**
  * Build transition matrix for all possible single-bend transitions from current state
+ * Now includes full energy calculation with electrostatics
  *
  * @param {Object} protein - Current protein state
  * @param {number} temperature - Temperature in K
+ * @param {string[]} sequence - Optional: amino acid sequence for full energy calc
+ * @param {number[]} currentFoldStates - Optional: current fold states for full energy calc
  * @returns {Array} Array of possible transitions with rates
  */
-export function buildTransitionMatrix(protein, temperature = ENERGY_CONSTANTS.ROOM_TEMPERATURE) {
+export function buildTransitionMatrix(protein, temperature = ENERGY_CONSTANTS.ROOM_TEMPERATURE, sequence = null, currentFoldStates = null) {
   const transitions = [];
+
+  // Calculate current full energy if sequence provided
+  const useFullEnergy = sequence !== null && currentFoldStates !== null;
+  let currentFullEnergy = 0;
+  if (useFullEnergy) {
+    currentFullEnergy = calculateFullEnergy(sequence, currentFoldStates);
+  }
 
   // For each bend position (between amino acids, not at ends)
   for (let pos = 1; pos < protein.aminoAcids.length - 1; pos++) {
@@ -315,14 +449,22 @@ export function buildTransitionMatrix(protein, temperature = ENERGY_CONSTANTS.RO
       if (stepChange > 2) continue;
 
       const angleChange = stepChange * 60;
-      const E_a_kinetic = calculateKineticBarrier(protein, angleChange);
+      const E_a_kinetic = calculateKineticBarrier(protein, angleChange, pos);
 
-      // Calculate energy of target state (would need to apply fold)
-      // For now, use the amino acid's fold energy directly
-      const aa = protein.aminoAcids[pos];
-      const currentFoldEnergy = calculateFoldEnergy(aa.type, currentSteps);
-      const targetFoldEnergy = calculateFoldEnergy(aa.type, targetSteps);
-      const deltaE = targetFoldEnergy - currentFoldEnergy;
+      let deltaE;
+      if (useFullEnergy) {
+        // Calculate full energy of target state including electrostatics
+        const targetFoldStates = [...currentFoldStates];
+        targetFoldStates[pos] = targetSteps;
+        const targetFullEnergy = calculateFullEnergy(sequence, targetFoldStates);
+        deltaE = targetFullEnergy - currentFullEnergy;
+      } else {
+        // Fallback: use only the amino acid's fold energy
+        const aa = protein.aminoAcids[pos];
+        const currentFoldEnergy = calculateFoldEnergy(aa.type, currentSteps);
+        const targetFoldEnergy = calculateFoldEnergy(aa.type, targetSteps);
+        deltaE = targetFoldEnergy - currentFoldEnergy;
+      }
 
       const rate = calculateTransitionRate(E_a_kinetic, deltaE, temperature);
 
