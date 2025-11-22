@@ -300,7 +300,6 @@ export function calculateTransitionRate(E_a_kinetic, deltaE, temperature = ENERG
  */
 export function buildTransitionMatrix(protein, temperature = ENERGY_CONSTANTS.ROOM_TEMPERATURE) {
   const transitions = [];
-  const currentEnergy = calculateProteinEnergy(protein);
 
   // For each bend position (between amino acids, not at ends)
   for (let pos = 1; pos < protein.aminoAcids.length - 1; pos++) {
