@@ -312,8 +312,8 @@ describe('Unified Molecular Rendering Tests', () => {
     });
 
     test('renders multi-amino acid protein', () => {
-      const result = ASCIIRenderer.renderProtein('STR-EX6-BTA-RPF');
-      expect(result).toBe('N-STR-EX6-BTA-RPF-C');
+      const result = ASCIIRenderer.renderProtein('STR-L60-FLX-R60');
+      expect(result).toBe('N-STR-L60-FLX-R60-C');
     });
 
     test('renders single amino acid protein', () => {
@@ -376,25 +376,25 @@ describe('Unified Molecular Rendering Tests', () => {
 
   describe('Single 60° right bend (Southeast)', () => {
     test('renders protein with 60° right bend', () => {
-      const sequence = 'STR-EX6-BTA-RPF';
+      const sequence = 'STR-L60-FLX-R60';
       const bends = [{ position: 1, angle: 60, direction: 'right' }];
 
       // Validate hex positions
       const hexGrid = sequenceToHexGrid(sequence, bends);
       expect(hexGrid).toEqual([
         { q: 0, r: 0, type: 'STR' },
-        { q: 1, r: 0, type: 'EX6' },
-        { q: 1, r: 1, type: 'BTA' },
-        { q: 1, r: 2, type: 'RPF' }
+        { q: 1, r: 0, type: 'L60' },
+        { q: 1, r: 1, type: 'FLX' },
+        { q: 1, r: 2, type: 'R60' }
       ]);
 
       // Validate ASCII output
       const ascii = ASCIIRenderer.hexGridToASCII(hexGrid, 'N-', '-C');
-      const expected = 'N-STR-EX6\n' +
+      const expected = 'N-STR-L60\n' +
                        '        \\\n' +
-                       '        BTA\n' +
+                       '        FLX\n' +
                        '          \\\n' +
-                       '          RPF-C';
+                       '          R60-C';
       expect(ascii).toBe(expected);
     });
 
@@ -428,25 +428,25 @@ describe('Unified Molecular Rendering Tests', () => {
 
   describe('Single 120° right bend (Southwest)', () => {
     test('renders protein with 120° right bend', () => {
-      const sequence = 'STR-EX6-BTA-RPF';
+      const sequence = 'STR-L60-FLX-STR';
       const bends = [{ position: 1, angle: 120, direction: 'right' }];
 
       // Validate hex positions
       const hexGrid = sequenceToHexGrid(sequence, bends);
       expect(hexGrid).toEqual([
         { q: 0, r: 0, type: 'STR' },
-        { q: 1, r: 0, type: 'EX6' },
-        { q: 0, r: 1, type: 'BTA' },
-        { q: -1, r: 2, type: 'RPF' }
+        { q: 1, r: 0, type: 'L60' },
+        { q: 0, r: 1, type: 'FLX' },
+        { q: -1, r: 2, type: 'STR' }
       ]);
 
       // Validate ASCII output
       const ascii = ASCIIRenderer.hexGridToASCII(hexGrid, 'N-', '-C');
-      const expected = 'N-STR-EX6\n' +
+      const expected = 'N-STR-L60\n' +
                        '      /\n' +
-                       '    BTA\n' +
+                       '    FLX\n' +
                        '    /\n' +
-                       '  RPF-C';
+                       '  STR-C';
       expect(ascii).toBe(expected);
     });
 
@@ -474,37 +474,37 @@ describe('Unified Molecular Rendering Tests', () => {
     });
 
     test('renders long protein with 120° bend and west movement', () => {
-      const sequence = 'STR-EX6-BTA-BTA-BTA-BTA-BTA-BTA';
+      const sequence = 'STR-L60-FLX-FLX-FLX-FLX-FLX-FLX';
       const bends = [{ position: 1, angle: 120, direction: 'right' }];
 
       // Validate hex positions
       const hexGrid = sequenceToHexGrid(sequence, bends);
       expect(hexGrid).toEqual([
         { q: 0, r: 0, type: 'STR' },
-        { q: 1, r: 0, type: 'EX6' },
-        { q: 0, r: 1, type: 'BTA' },
-        { q: -1, r: 2, type: 'BTA' },
-        { q: -2, r: 3, type: 'BTA' },
-        { q: -3, r: 4, type: 'BTA' },
-        { q: -4, r: 5, type: 'BTA' },
-        { q: -5, r: 6, type: 'BTA' }
+        { q: 1, r: 0, type: 'L60' },
+        { q: 0, r: 1, type: 'FLX' },
+        { q: -1, r: 2, type: 'FLX' },
+        { q: -2, r: 3, type: 'FLX' },
+        { q: -3, r: 4, type: 'FLX' },
+        { q: -4, r: 5, type: 'FLX' },
+        { q: -5, r: 6, type: 'FLX' }
       ]);
 
       // Validate ASCII output
       const ascii = ASCIIRenderer.hexGridToASCII(hexGrid, 'N-', '-C');
-      const expected = '      N-STR-EX6\n' +
+      const expected = '      N-STR-L60\n' +
                        '            /\n' +
-                       '          BTA\n' +
+                       '          FLX\n' +
                        '          /\n' +
-                       '        BTA\n' +
+                       '        FLX\n' +
                        '        /\n' +
-                       '      BTA\n' +
+                       '      FLX\n' +
                        '      /\n' +
-                       '    BTA\n' +
+                       '    FLX\n' +
                        '    /\n' +
-                       '  BTA\n' +
+                       '  FLX\n' +
                        '  /\n' +
-                       'BTA-C';
+                       'FLX-C';
       expect(ascii).toBe(expected);
     });
   });
@@ -1299,7 +1299,7 @@ describe('Unified Molecular Rendering Tests', () => {
 
   describe('Protein error handling', () => {
     test('returns error for invalid protein bend position', () => {
-      const result = ASCIIRenderer.renderProteinWithBend('STR-EX6', -1, 60);
+      const result = ASCIIRenderer.renderProteinWithBend('STR-L60', -1, 60);
       expect(result).toBe('ERROR: Invalid bend position');
     });
   });

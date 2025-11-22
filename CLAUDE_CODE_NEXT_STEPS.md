@@ -7,7 +7,7 @@
   - Core game philosophy (sandbox mechanics, Shapez/Factorio/ONI inspired)
   - Brownian motion & hex-grid molecules
   - Shape-complementarity binding system
-  - 12 amino acid types (STR, EX6, CP6, E12, C12, BTA, BTC, BTG, BTT, CRL, RPF, PBF)
+  - 13 amino acid types (STR, L60, R60, L12, R12, FLX, BTA, BTC, BTG, BTT, CRL, RPF, PBF)
   - Protein folding mechanics
   - Heat transport system (deferred for now)
   - ATP energy system (deferred for now)

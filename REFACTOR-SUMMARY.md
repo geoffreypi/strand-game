@@ -49,7 +49,7 @@ All 50 tests pass:
 ## Example: Unlimited Bends
 
 ```javascript
-const sequence = 'STR-EX6-BTA-RPF-GLU-ASP-LYS';
+const sequence = 'STR-L60-FLX-R60-POS-NEG-PHO';
 const bends = [
   { position: 1, angle: 60, direction: 'right' },
   { position: 3, angle: 120, direction: 'right' },
@@ -62,11 +62,11 @@ const result = ASCIIRenderer.hexGridToASCII(hexGrid, 'N-', '-C');
 
 Output:
 ```
-N-STR-EX6
+N-STR-L60
         \
-        BTA     LYS-C
+        FLX     PHO-C
           \       /
-          RPF-GLU-ASP
+          R60-POS-NEG
 ```
 
 ## Backwards Compatibility

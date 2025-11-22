@@ -84,7 +84,7 @@ class RNAStrand {
 #### ProteinChain
 ```javascript
 class ProteinChain {
-    sequence = "";  // "S-E60-BA-RPF"
+    sequence = "";  // "STR-L60-BTA-RPF"
     direction = "N->C";
     folded = false;
 }
@@ -381,7 +381,7 @@ class FoldingSystem {
     
     applyFoldingForces(structure, chain) {
         // Parse amino acid sequence
-        // For each amino acid with folding preference (E60, C60, E120, C120):
+        // For each amino acid with folding preference (L60, R60, L12, R12):
         //   - Calculate moment of inertia of current structure
         //   - Apply bend in direction that satisfies preference
         //   - Check for self-overlap (reject if overlaps)
@@ -640,8 +640,8 @@ const renderSystem = new RenderSystem();
 
 // Create starting molecules
 const dna1 = createDNA(world, 200, 200, "ACGT", "TGCA");
-const polymerase = createProtein(world, 400, 200, "S-E60-BA-BG-RPF-CRL-S");
-const ribosome = createProtein(world, 600, 200, "E60-E60-PBF-C60-BU-BU-BU");
+const polymerase = createProtein(world, 400, 200, "STR-L60-BTA-BTG-RPF-CRL-STR");
+const ribosome = createProtein(world, 600, 200, "L60-L60-PBF-R60-FLX-FLX-FLX");
 
 // Game loop
 function gameLoop(timestamp) {

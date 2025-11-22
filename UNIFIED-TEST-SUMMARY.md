@@ -21,7 +21,7 @@ This new file consolidates ALL unique test coverage into a single comprehensive 
 
 2. **Straight Sequences (8 tests)** - All validate hex + ASCII
    - Straight protein (A-B-C-D)
-   - Multi-amino acid protein (STR-EX6-BTA-RPF)
+   - Multi-amino acid protein (STR-L60-FLX-R60)
    - Single amino acid
    - Straight RNA (ACGU)
    - RNA with 5 bases

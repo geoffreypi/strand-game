@@ -222,58 +222,62 @@ Or with 60° bend:
 ![12 Amino Acid Types](../assets/amino-acid-types.svg)
 
 *Structural amino acids (control folding):*
-1. **Straight (STR):** 
+1. **Straight (STR):**
    - No bending preference, maintains linear structure
 
-2. **Expand-60 (EX6):** 
-   - Wants to bend at 60°
-   - Direction increases moment of inertia (spreads out)
+2. **Left-60 (L60):**
+   - Wants to bend at 60° to the left
+   - Creates expanding/spreading structures
 
-3. **Compact-60 (CP6):** 
-   - Wants to bend at 60°
-   - Direction decreases moment of inertia (tighter)
+3. **Right-60 (R60):**
+   - Wants to bend at 60° to the right
+   - Creates compact/tighter structures
 
-4. **Expand-120 (E12):**
-   - Wants to bend at 120°
-   - Direction increases moment of inertia (spreads out)
-   - Example: N-STR-E12
+4. **Left-120 (L12):**
+   - Wants to bend at 120° to the left (sharp turn)
+   - Creates expanding structures
+   - Example: N-STR-L12
                       \
                        BTA (bends using /)
 
-5. **Compact-120 (C12):**
-   - Wants to bend at 120°
-   - Direction decreases moment of inertia (tighter)
-   - Example: N-STR-C12
+5. **Right-120 (R12):**
+   - Wants to bend at 120° to the right (sharp turn)
+   - Creates compact structures
+   - Example: N-STR-R12
                       /
-                       BTA (bends using \, opposite of E12)
+                       BTA (bends using \, opposite of L12)
+
+6. **Flexible (FLX):**
+   - No folding preference
+   - Low energy barriers, easily bends in any direction
 
 *DNA/RNA-binding amino acids (sequence recognition):*
 
-6. **Bind-A (BTA):** 
+7. **Bind-A (BTA):** 
    - Straight line
    - Wants to bond to A nucleotide in DNA/RNA
 
-7. **Bind-C (BTC):** 
+8. **Bind-C (BTC):** 
    - Straight line
    - Wants to bond to C nucleotide in DNA/RNA
 
-8. **Bind-G (BTG):** 
+9. **Bind-G (BTG):** 
    - Straight line
    - Wants to bond to G nucleotide in DNA/RNA
 
-9. **Bind-T (BTT):** 
+10. **Bind-T (BTT):** 
    - Straight line
    - Wants to bond to T nucleotide in DNA
 
 *Mechanical amino acids (manipulation):*
 
-10. **Curl (CRL):** 
+11. **Curl (CRL):** 
     - After binding to DNA/RNA, causes the nucleic acid to curl/bend towards it
     - Enables DNA/RNA manipulation during transcription/translation
 
 *Catalytic amino acids (transcription & translation):*
 
-11. **RNA-Polymerase-Function (RPF):** 
+12. **RNA-Polymerase-Function (RPF):** 
     - Catalyzes RNA synthesis during transcription (DNA → RNA)
     - Must be bound to function (positioned by protein fold)
     - Adjacent to DNA codon(s): Reads template strand
@@ -285,7 +289,7 @@ Or with 60° bend:
     - Chain extension: If existing RNA codon immediately before open location, new codon attaches to it (continues chain)
     - Consumes ATP per nucleotide added
 
-12. **Peptide-Bond-Former (PBF):** 
+13. **Peptide-Bond-Former (PBF):** 
     - Catalyzes protein synthesis during translation (RNA → Protein)
     - Must be bound to function (positioned by protein fold)
     - Adjacent to RNA codon(s): Reads mRNA sequence
@@ -316,45 +320,45 @@ Or with 60° bend:
 **Example Protein Design:**
 ```
 Simple transcription factor:
-N-STR-STR-BTA-BTT-CRL-EX6-EX6-STR-C
+N-STR-STR-BTA-BTT-CRL-L60-L60-STR-C
 
 This protein would:
 - Start straight (STR-STR)
 - Have DNA binding sites (BTA-BTT) that recognize AT sequence
 - Have curl mechanism (CRL) to bend DNA
-- Expand outward (EX6-EX6) to create binding pocket
+- Bend left (L60-L60) to create binding pocket
 - End straight (STR)
 
 Result: Binds AT-rich DNA and bends it (but doesn't transcribe - no RPF)
 
 Visual example with bends AT amino acids (not in gaps):
-N-STR-EX6
+N-STR-L60
         \
         BTA
           \
           STR-C
 
-The \ occurs AT the EX6 and BTA amino acids (60° bend),
+The \ occurs AT the L60 and BTA amino acids (60° bend),
 not in the gaps between them.
 ```
 
 RNA Polymerase (simplified example):
-N-EX6-BTA-BTG-RPF-CRL-BTA-BTT-STR-STR-C
-    
+N-L60-BTA-BTG-RPF-CRL-BTA-BTT-STR-STR-C
+
 This RNA polymerase would:
-- Expanded structure (EX6) to create channel
+- Left bend structure (L60) to create channel
 - DNA binding sites (BTA-BTG-BTA-BTT) to recognize promoter and position template strand
 - RPF catalytic site reads DNA and synthesizes complementary RNA
 - CRL manipulates DNA during transcription
 - Creates RNA strand from DNA template (consumes ATP per nucleotide)
 
 Ribosome (simplified example):
-N-EX6-EX6-PBF-CP6-STR-STR-C
-    
+N-L60-L60-PBF-R60-STR-STR-C
+
 This ribosome would:
-- Create expanded binding channel (EX6-EX6)
+- Create binding channel with left bends (L60-L60)
 - Have catalytic site (PBF) that reads mRNA codons and adds amino acids
-- Compact region (CP6) to create stable core
+- Right bend (R60) to create stable core
 - The PBF reads codons and extends the growing protein chain (consumes ATP per amino acid)
 - Note: Removed BU (Bind-U) amino acids since we no longer have that type
 ```

@@ -3,7 +3,7 @@
 
 /**
  * Convert a sequence with bends into hex grid coordinates
- * @param {string} sequence - e.g., "STR-EX6-BTA-RPF-CP6" or "ACGU"
+ * @param {string} sequence - e.g., "STR-L60-FLX-R60-L12" or "ACGU"
  * @param {Array} bends - [{position: 2, angle: 60, direction: 'right'}, ...]
  * @returns {Array} [{q, r, type}, ...] or throws error if overlap detected
  */
