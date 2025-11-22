@@ -14,7 +14,17 @@ import {
   angleToSteps,
   stepsToAngle,
 } from './energy.js';
-import { ENERGY_CONSTANTS, calculateFoldEnergy } from '../data/amino-acids.js';
+import {
+  ENERGY_CONSTANTS,
+  calculateFoldEnergy,
+  getBindingTarget,
+  getCatalyticFunction,
+  getMechanicalFunction,
+  canBindToNucleotide,
+  getNucleotideBindingAminoAcids,
+  getCatalyticAminoAcids,
+  AMINO_ACID_TYPES
+} from '../data/amino-acids.js';
 
 // =============================================================================
 // TEST UTILITIES
@@ -909,6 +919,156 @@ describe('Physics Energy Calculations', () => {
 
       // The energies should be different due to electrostatics
       expect(straightEnergy).not.toBeCloseTo(foldedEnergy, 1);
+    });
+  });
+
+  // ===========================================================================
+  // NEW AMINO ACID TYPES (DNA/RNA Binding, Mechanical, Catalytic)
+  // ===========================================================================
+
+  describe('DNA/RNA Binding Amino Acids', () => {
+    test('BTA binds to Adenine', () => {
+      expect(getBindingTarget('BTA')).toBe('A');
+      expect(canBindToNucleotide('BTA', 'A')).toBe(true);
+      expect(canBindToNucleotide('BTA', 'C')).toBe(false);
+      expect(canBindToNucleotide('BTA', 'G')).toBe(false);
+      expect(canBindToNucleotide('BTA', 'T')).toBe(false);
+    });
+
+    test('BTC binds to Cytosine', () => {
+      expect(getBindingTarget('BTC')).toBe('C');
+      expect(canBindToNucleotide('BTC', 'C')).toBe(true);
+      expect(canBindToNucleotide('BTC', 'A')).toBe(false);
+    });
+
+    test('BTG binds to Guanine', () => {
+      expect(getBindingTarget('BTG')).toBe('G');
+      expect(canBindToNucleotide('BTG', 'G')).toBe(true);
+      expect(canBindToNucleotide('BTG', 'A')).toBe(false);
+    });
+
+    test('BTT binds to Thymine and Uracil', () => {
+      expect(getBindingTarget('BTT')).toBe('T');
+      expect(canBindToNucleotide('BTT', 'T')).toBe(true);
+      expect(canBindToNucleotide('BTT', 'U')).toBe(true);  // Also binds U in RNA
+      expect(canBindToNucleotide('BTT', 'A')).toBe(false);
+    });
+
+    test('getNucleotideBindingAminoAcids returns all binding AAs', () => {
+      const bindingAAs = getNucleotideBindingAminoAcids();
+      expect(bindingAAs).toContain('BTA');
+      expect(bindingAAs).toContain('BTC');
+      expect(bindingAAs).toContain('BTG');
+      expect(bindingAAs).toContain('BTT');
+      expect(bindingAAs.length).toBe(4);
+    });
+
+    test('non-binding AAs return null for binding target', () => {
+      expect(getBindingTarget('STR')).toBeNull();
+      expect(getBindingTarget('FLX')).toBeNull();
+      expect(getBindingTarget('POS')).toBeNull();
+      expect(canBindToNucleotide('STR', 'A')).toBe(false);
+    });
+
+    test('binding AAs have no folding preference', () => {
+      for (const code of ['BTA', 'BTC', 'BTG', 'BTT']) {
+        expect(calculateFoldEnergy(code, 0)).toBe(0);
+        expect(calculateFoldEnergy(code, 1)).toBe(0);
+        expect(calculateFoldEnergy(code, -1)).toBe(0);
+      }
+    });
+  });
+
+  describe('Mechanical Amino Acids', () => {
+    test('CRL has curl mechanical function', () => {
+      expect(getMechanicalFunction('CRL')).toBe('curl');
+    });
+
+    test('non-mechanical AAs return null', () => {
+      expect(getMechanicalFunction('STR')).toBeNull();
+      expect(getMechanicalFunction('BTA')).toBeNull();
+      expect(getMechanicalFunction('RPF')).toBeNull();
+    });
+
+    test('CRL has no folding preference', () => {
+      expect(calculateFoldEnergy('CRL', 0)).toBe(0);
+      expect(calculateFoldEnergy('CRL', 2)).toBe(0);
+    });
+  });
+
+  describe('Catalytic Amino Acids', () => {
+    test('RPF has transcription catalytic function', () => {
+      expect(getCatalyticFunction('RPF')).toBe('transcription');
+    });
+
+    test('PBF has translation catalytic function', () => {
+      expect(getCatalyticFunction('PBF')).toBe('translation');
+    });
+
+    test('getCatalyticAminoAcids returns RPF and PBF', () => {
+      const catalyticAAs = getCatalyticAminoAcids();
+      expect(catalyticAAs).toContain('RPF');
+      expect(catalyticAAs).toContain('PBF');
+      expect(catalyticAAs.length).toBe(2);
+    });
+
+    test('non-catalytic AAs return null', () => {
+      expect(getCatalyticFunction('STR')).toBeNull();
+      expect(getCatalyticFunction('BTA')).toBeNull();
+      expect(getCatalyticFunction('CRL')).toBeNull();
+    });
+
+    test('catalytic AAs have no folding preference', () => {
+      expect(calculateFoldEnergy('RPF', 0)).toBe(0);
+      expect(calculateFoldEnergy('RPF', -2)).toBe(0);
+      expect(calculateFoldEnergy('PBF', 0)).toBe(0);
+      expect(calculateFoldEnergy('PBF', 2)).toBe(0);
+    });
+  });
+
+  describe('All 17 Amino Acid Types', () => {
+    test('all amino acids are defined', () => {
+      const expectedAAs = [
+        // Structural
+        'STR', 'L60', 'R60', 'L12', 'R12', 'FLX',
+        // Charged
+        'POS', 'NEG',
+        // Hydrophobic
+        'PHO', 'PHI',
+        // DNA/RNA Binding
+        'BTA', 'BTC', 'BTG', 'BTT',
+        // Mechanical
+        'CRL',
+        // Catalytic
+        'RPF', 'PBF'
+      ];
+
+      for (const code of expectedAAs) {
+        expect(AMINO_ACID_TYPES[code]).toBeDefined();
+        expect(AMINO_ACID_TYPES[code].code).toBe(code);
+        expect(AMINO_ACID_TYPES[code].mass).toBeGreaterThan(0);
+      }
+
+      expect(Object.keys(AMINO_ACID_TYPES).length).toBe(17);
+    });
+
+    test('new AAs can be used in protein sequences', () => {
+      // Protein with binding and catalytic AAs
+      const sequence = ['STR', 'BTA', 'BTG', 'RPF', 'CRL', 'PBF', 'STR'];
+      const foldStates = [0, 0, 0, 0, 0, 0, 0];
+
+      const energy = calculateFullEnergy(sequence, foldStates);
+      expect(isFinite(energy)).toBe(true);
+    });
+
+    test('new AAs work with folding simulation', () => {
+      const sequence = ['L60', 'BTA', 'RPF', 'BTC', 'R60'];
+      const foldStates = [0, 0, 0, 0, 0];
+
+      const protein = buildProteinWithPositions(sequence, foldStates);
+      expect(protein.aminoAcids.length).toBe(5);
+      expect(protein.aminoAcids[1].type).toBe('BTA');
+      expect(protein.aminoAcids[2].type).toBe('RPF');
     });
   });
 });

@@ -8,14 +8,28 @@
  * - Kinetic barrier (rotational): ~0.025 eV for small folds
  *
  * Masses are in Daltons (Da), based on real amino acid masses.
+ *
+ * Amino Acid Categories:
+ * - STRUCTURAL (6): STR, L60, R60, L12, R12, FLX - Control folding geometry
+ * - CHARGED (2): POS, NEG - Electrostatic interactions
+ * - HYDROPHOBIC (2): PHO, PHI - Burial/exposure preferences
+ * - DNA/RNA BINDING (4): BTA, BTC, BTG, BTT - Sequence recognition
+ * - MECHANICAL (1): CRL - DNA/RNA manipulation
+ * - CATALYTIC (2): RPF, PBF - Transcription & translation
+ *
+ * Total: 17 amino acid types
  */
 
 /**
- * Structural amino acids with independent properties:
- * - Folding preference (straight, left/right 60°/120°, flexible)
- * - Charge (+1, -1, 0)
- * - Hydrophobicity (hydrophobic, hydrophilic, neutral)
- * - Mass in Daltons (affects moment of inertia → kinetic barriers)
+ * Amino acid properties:
+ * - foldingPreference: Preferred bend angle and direction (null = no preference)
+ * - preferredSteps: Preferred fold state in steps notation
+ * - charge: Electrostatic charge (+1, -1, 0)
+ * - hydrophobicity: 'hydrophobic', 'hydrophilic', or 'neutral'
+ * - mass: Mass in Daltons (affects moment of inertia)
+ * - bindsTo: Nucleotide this amino acid binds to (for BT* types)
+ * - mechanical: Mechanical function (for CRL)
+ * - catalytic: Catalytic function (for RPF, PBF)
  */
 
 export const AMINO_ACID_TYPES = {
@@ -139,6 +153,102 @@ export const AMINO_ACID_TYPES = {
     hydrophobicity: 'hydrophilic',  // Wants to be on surface
     mass: 132,  // Da, like Asparagine
     description: 'Hydrophilic, wants to be on protein surface'
+  },
+
+  // ========================================================================
+  // DNA/RNA BINDING - Sequence recognition
+  // ========================================================================
+
+  BTA: {
+    name: 'Bind-Adenine',
+    code: 'BTA',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 120,
+    bindsTo: 'A',  // Binds to Adenine in DNA/RNA
+    description: 'Binds to Adenine (A) nucleotide'
+  },
+
+  BTC: {
+    name: 'Bind-Cytosine',
+    code: 'BTC',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 120,
+    bindsTo: 'C',  // Binds to Cytosine in DNA/RNA
+    description: 'Binds to Cytosine (C) nucleotide'
+  },
+
+  BTG: {
+    name: 'Bind-Guanine',
+    code: 'BTG',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 120,
+    bindsTo: 'G',  // Binds to Guanine in DNA/RNA
+    description: 'Binds to Guanine (G) nucleotide'
+  },
+
+  BTT: {
+    name: 'Bind-Thymine',
+    code: 'BTT',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 120,
+    bindsTo: 'T',  // Binds to Thymine in DNA (or Uracil in RNA)
+    description: 'Binds to Thymine (T) in DNA or Uracil (U) in RNA'
+  },
+
+  // ========================================================================
+  // MECHANICAL - DNA/RNA manipulation
+  // ========================================================================
+
+  CRL: {
+    name: 'Curl',
+    code: 'CRL',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 110,
+    mechanical: 'curl',  // Causes bound DNA/RNA to bend toward protein
+    description: 'Causes bound DNA/RNA to curl/bend toward it'
+  },
+
+  // ========================================================================
+  // CATALYTIC - Transcription & Translation
+  // ========================================================================
+
+  RPF: {
+    name: 'RNA-Polymerase-Function',
+    code: 'RPF',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 180,
+    catalytic: 'transcription',  // Catalyzes DNA -> RNA
+    description: 'Catalyzes RNA synthesis (transcription). Reads DNA, produces complementary RNA.'
+  },
+
+  PBF: {
+    name: 'Peptide-Bond-Former',
+    code: 'PBF',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 200,
+    catalytic: 'translation',  // Catalyzes RNA -> Protein
+    description: 'Catalyzes protein synthesis (translation). Reads mRNA codons, adds amino acids.'
   }
 };
 
@@ -226,6 +336,72 @@ export function calculateTransitionRate(aminoAcidCode, fromSteps, toSteps, E_a_b
   const barrier = E_a_base + Math.max(0, deltaE);
 
   return Math.exp(-barrier / kT);
+}
+
+/**
+ * Check if amino acid can bind to a nucleotide
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {string|null} The nucleotide it binds to, or null
+ */
+export function getBindingTarget(aminoAcidCode) {
+  const aa = AMINO_ACID_TYPES[aminoAcidCode];
+  return aa?.bindsTo || null;
+}
+
+/**
+ * Check if amino acid has catalytic function
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {string|null} The catalytic function ('transcription' or 'translation'), or null
+ */
+export function getCatalyticFunction(aminoAcidCode) {
+  const aa = AMINO_ACID_TYPES[aminoAcidCode];
+  return aa?.catalytic || null;
+}
+
+/**
+ * Check if amino acid has mechanical function
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {string|null} The mechanical function ('curl'), or null
+ */
+export function getMechanicalFunction(aminoAcidCode) {
+  const aa = AMINO_ACID_TYPES[aminoAcidCode];
+  return aa?.mechanical || null;
+}
+
+/**
+ * Check if amino acid can bind to a specific nucleotide
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @param {string} nucleotide - The nucleotide to check ('A', 'C', 'G', 'T', 'U')
+ * @returns {boolean} True if the amino acid binds to this nucleotide
+ */
+export function canBindToNucleotide(aminoAcidCode, nucleotide) {
+  const bindTarget = getBindingTarget(aminoAcidCode);
+  if (!bindTarget) return false;
+
+  // BTT binds to both T and U
+  if (bindTarget === 'T' && nucleotide === 'U') return true;
+
+  return bindTarget === nucleotide;
+}
+
+/**
+ * Get all amino acids that can bind to nucleotides
+ * @returns {string[]} Array of amino acid codes
+ */
+export function getNucleotideBindingAminoAcids() {
+  return Object.keys(AMINO_ACID_TYPES).filter(code =>
+    AMINO_ACID_TYPES[code].bindsTo !== undefined
+  );
+}
+
+/**
+ * Get all amino acids with catalytic function
+ * @returns {string[]} Array of amino acid codes
+ */
+export function getCatalyticAminoAcids() {
+  return Object.keys(AMINO_ACID_TYPES).filter(code =>
+    AMINO_ACID_TYPES[code].catalytic !== undefined
+  );
 }
 
 // ES Module export
