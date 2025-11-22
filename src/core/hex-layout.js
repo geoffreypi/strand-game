@@ -347,14 +347,33 @@ function getNeighbors(q, r) {
 }
 
 /**
- * Calculate distance between two hexes
+ * Calculate Manhattan (grid) distance between two hexes
+ * This is the minimum number of hex steps to get from one hex to another
  * @param {Object} hex1 - {q, r}
  * @param {Object} hex2 - {q, r}
- * @returns {number} Distance
+ * @returns {number} Manhattan distance in hex steps
  */
-function hexDistance(hex1, hex2) {
-  // Convert hex coordinates to Euclidean (cartesian) coordinates
-  // Hex layout: q is horizontal, r is diagonal (pointy-top hex grid)
+function hexManhattanDistance(hex1, hex2) {
+  // In axial coordinates, convert to cube coordinates for distance
+  // cube: x = q, y = -q-r, z = r
+  // distance = max(|dx|, |dy|, |dz|) = (|dx| + |dy| + |dz|) / 2
+  const dq = hex2.q - hex1.q;
+  const dr = hex2.r - hex1.r;
+  const ds = -dq - dr;  // implicit s coordinate
+
+  return (Math.abs(dq) + Math.abs(dr) + Math.abs(ds)) / 2;
+}
+
+/**
+ * Calculate Euclidean (spatial) distance between two hexes
+ * This is the actual geometric distance in space
+ * @param {Object} hex1 - {q, r}
+ * @param {Object} hex2 - {q, r}
+ * @returns {number} Euclidean distance (where adjacent hexes are 1 unit apart)
+ */
+function hexEuclideanDistance(hex1, hex2) {
+  // Convert hex coordinates to Cartesian coordinates
+  // Hex layout: q is horizontal, r is diagonal (flat-top hex grid)
   // x = q + r/2, y = r * sqrt(3)/2
   const x1 = hex1.q + hex1.r * 0.5;
   const y1 = hex1.r * Math.sqrt(3) / 2;
@@ -374,7 +393,8 @@ export {
   applyBend,
   moveInDirection,
   getNeighbors,
-  hexDistance
+  hexManhattanDistance,
+  hexEuclideanDistance
 };
 
 // CommonJS export for compatibility
@@ -385,6 +405,7 @@ if (typeof module !== 'undefined' && module.exports) {
     applyBend,
     moveInDirection,
     getNeighbors,
-    hexDistance
+    hexManhattanDistance,
+    hexEuclideanDistance
   };
 }

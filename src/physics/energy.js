@@ -10,7 +10,7 @@
  */
 
 import { AMINO_ACID_TYPES, ENERGY_CONSTANTS, calculateFoldEnergy } from '../data/amino-acids.js';
-import { hexDistance, sequenceToHexGrid } from '../core/hex-layout.js';
+import { hexEuclideanDistance, sequenceToHexGrid } from '../core/hex-layout.js';
 
 /**
  * Calculate total energy of a protein in its current state
@@ -55,7 +55,7 @@ export function calculateElectrostaticEnergy(protein) {
 
       if (q1 === 0 || q2 === 0) continue;
 
-      const r = hexDistance(aa1.position, aa2.position);
+      const r = hexEuclideanDistance(aa1.position, aa2.position);
 
       if (r > 0) {
         // 2D Coulomb potential: E = -k * q1 * q2 * ln(r)
@@ -113,7 +113,7 @@ function calculateSolventExposure(protein, index) {
     if (j === index) continue;
 
     const other = protein.aminoAcids[j];
-    const dist = hexDistance(aa.position, other.position);
+    const dist = hexEuclideanDistance(aa.position, other.position);
 
     // Count neighbors within contact distance
     if (dist <= 1.5) {  // Adjacent or very close
@@ -201,7 +201,7 @@ export function calculateStericEnergy(protein) {
       const aa1 = protein.aminoAcids[i];
       const aa2 = protein.aminoAcids[j];
 
-      const r = hexDistance(aa1.position, aa2.position);
+      const r = hexEuclideanDistance(aa1.position, aa2.position);
 
       if (r < CLASH_DISTANCE) {
         // Severe steric clash - Lennard-Jones-like repulsion

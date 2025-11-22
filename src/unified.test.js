@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { sequenceToHexGrid, dnaToHexGrid, applyBend, moveInDirection, getNeighbors, hexDistance } from './core/hex-layout.js';
+import { sequenceToHexGrid, dnaToHexGrid, applyBend, moveInDirection, getNeighbors, hexManhattanDistance, hexEuclideanDistance } from './core/hex-layout.js';
 import ASCIIRenderer from './renderers/ascii-renderer.js';
 
 describe('Unified Molecular Rendering Tests', () => {
@@ -1376,32 +1376,58 @@ describe('Unified Molecular Rendering Tests', () => {
     });
   });
 
-  describe('hexDistance helper function', () => {
+  describe('hexManhattanDistance helper function', () => {
     test('calculates distance for same hex', () => {
-      expect(hexDistance({ q: 0, r: 0 }, { q: 0, r: 0 })).toBe(0);
+      expect(hexManhattanDistance({ q: 0, r: 0 }, { q: 0, r: 0 })).toBe(0);
     });
 
     test('calculates distance for adjacent hexes', () => {
-      expect(hexDistance({ q: 0, r: 0 }, { q: 1, r: 0 })).toBe(1);
+      expect(hexManhattanDistance({ q: 0, r: 0 }, { q: 1, r: 0 })).toBe(1);
+    });
+
+    test('calculates distance for diagonal', () => {
+      // Manhattan distance: (0,0) to (2,2) = 4 hex steps
+      expect(hexManhattanDistance({ q: 0, r: 0 }, { q: 2, r: 2 })).toBe(4);
+    });
+
+    test('calculates distance with negative coordinates', () => {
+      // (-3,-2) to (1,4) = 10 hex steps
+      expect(hexManhattanDistance({ q: -3, r: -2 }, { q: 1, r: 4 })).toBe(10);
+    });
+
+    test('is symmetric', () => {
+      const dist1 = hexManhattanDistance({ q: 1, r: 2 }, { q: 5, r: 7 });
+      const dist2 = hexManhattanDistance({ q: 5, r: 7 }, { q: 1, r: 2 });
+      expect(dist1).toBe(dist2);
+    });
+  });
+
+  describe('hexEuclideanDistance helper function', () => {
+    test('calculates distance for same hex', () => {
+      expect(hexEuclideanDistance({ q: 0, r: 0 }, { q: 0, r: 0 })).toBe(0);
+    });
+
+    test('calculates distance for adjacent hexes', () => {
+      expect(hexEuclideanDistance({ q: 0, r: 0 }, { q: 1, r: 0 })).toBe(1);
     });
 
     test('calculates distance for diagonal', () => {
       // Euclidean distance: x = q + r*0.5, y = r * sqrt(3)/2
       // (0,0) -> x=0, y=0; (2,2) -> x=3, y=sqrt(3) ≈ 1.732
       // dist = sqrt(9 + 3) = sqrt(12) ≈ 3.464
-      expect(hexDistance({ q: 0, r: 0 }, { q: 2, r: 2 })).toBeCloseTo(3.464, 2);
+      expect(hexEuclideanDistance({ q: 0, r: 0 }, { q: 2, r: 2 })).toBeCloseTo(3.464, 2);
     });
 
     test('calculates distance with negative coordinates', () => {
       // (-3,-2) -> x=-4, y=-sqrt(3); (1,4) -> x=3, y=2*sqrt(3)
       // dx=7, dy=3*sqrt(3) ≈ 5.196
       // dist = sqrt(49 + 27) = sqrt(76) ≈ 8.718
-      expect(hexDistance({ q: -3, r: -2 }, { q: 1, r: 4 })).toBeCloseTo(8.718, 2);
+      expect(hexEuclideanDistance({ q: -3, r: -2 }, { q: 1, r: 4 })).toBeCloseTo(8.718, 2);
     });
 
     test('is symmetric', () => {
-      const dist1 = hexDistance({ q: 1, r: 2 }, { q: 5, r: 7 });
-      const dist2 = hexDistance({ q: 5, r: 7 }, { q: 1, r: 2 });
+      const dist1 = hexEuclideanDistance({ q: 1, r: 2 }, { q: 5, r: 7 });
+      const dist2 = hexEuclideanDistance({ q: 5, r: 7 }, { q: 1, r: 2 });
       expect(dist1).toBe(dist2);
     });
   });

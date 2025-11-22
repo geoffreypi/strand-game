@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Terminal Animation Module for Protein Folding Game
  *
@@ -8,9 +9,9 @@
  */
 
 import ASCIIRenderer from '../renderers/ascii-renderer.js';
-import { AMINO_ACID_TYPES, ENERGY_CONSTANTS, calculateFoldEnergy } from '../data/amino-acids.js';
-import { sequenceToHexGrid, hexDistance } from '../core/hex-layout.js';
-import { buildTransitionMatrix, angleToSteps, stepsToAngle, calculateFullEnergy } from '../physics/energy.js';
+import { calculateFoldEnergy } from '../data/amino-acids.js';
+import { sequenceToHexGrid } from '../core/hex-layout.js';
+import { buildTransitionMatrix, stepsToAngle, calculateFullEnergy } from '../physics/energy.js';
 
 /**
  * ANSI escape codes for terminal control
@@ -659,7 +660,7 @@ export class ProteinFoldingAnimationSync {
     for (let step = 1; step <= maxSteps; step++) {
       const protein = this.toProteinObject(sequence, currentFoldStates);
       // Pass sequence and foldStates for full energy calculation including electrostatics
-      const { transitions, totalRate, stayRate } = buildTransitionMatrix(protein, undefined, sequence, currentFoldStates);
+      const { transitions, stayRate } = buildTransitionMatrix(protein, undefined, sequence, currentFoldStates);
 
       // Filter out transitions that would cause overlaps
       const validTransitions = transitions.filter(t => {
@@ -763,7 +764,7 @@ export function sleep(ms) {
  * @param {number} length - Number of amino acids (2-12)
  * @returns {string[]} Random sequence of amino acid codes
  */
-function generateRandomSequence(length) {
+export function generateRandomSequence(length) {
   const aminoAcids = ['STR', 'L60', 'R60', 'L12', 'R12', 'FLX', 'POS', 'NEG', 'PHO', 'PHI'];
   const sequence = [];
   for (let i = 0; i < length; i++) {
@@ -851,8 +852,6 @@ export async function runDemo() {
   // Thermodynamic protein folding simulations
   console.log(`${ANSI.BOLD}3. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
   console.log(`${ANSI.DIM}   Each protein folds according to transition probabilities from the physics engine${ANSI.RESET}\n`);
-
-  const animation = new ProteinFoldingAnimationSync({ frameDelay: 300 });
 
   for (let i = 0; i < DEMO_SEQUENCES.length; i++) {
     const { name, description, sequence } = DEMO_SEQUENCES[i];
