@@ -1050,7 +1050,7 @@ describe('Physics Energy Calculations', () => {
     });
   });
 
-  describe('All 17 Amino Acid Types', () => {
+  describe('All 21 Amino Acid Types', () => {
     test('all amino acids are defined', () => {
       const expectedAAs = [
         // Structural
@@ -1064,7 +1064,11 @@ describe('Physics Energy Calculations', () => {
         // Mechanical
         'CRL',
         // Catalytic
-        'RPF', 'PBF'
+        'RPF', 'PBF',
+        // Signaling
+        'SIG', 'AND',
+        // Actuators
+        'PSH', 'ATR'
       ];
 
       for (const code of expectedAAs) {
@@ -1073,7 +1077,7 @@ describe('Physics Energy Calculations', () => {
         expect(AMINO_ACID_TYPES[code].mass).toBeGreaterThan(0);
       }
 
-      expect(Object.keys(AMINO_ACID_TYPES).length).toBe(17);
+      expect(Object.keys(AMINO_ACID_TYPES).length).toBe(21);
     });
 
     test('new AAs can be used in protein sequences', () => {

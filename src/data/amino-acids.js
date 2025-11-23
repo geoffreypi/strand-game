@@ -16,8 +16,10 @@
  * - DNA/RNA BINDING (4): BTA, BTC, BTG, BTT - Sequence recognition
  * - MECHANICAL (1): CRL - DNA/RNA manipulation
  * - CATALYTIC (2): RPF, PBF - Transcription & translation
+ * - SIGNALING (2): SIG, AND - Signal propagation and logic gates
+ * - ACTUATORS (2): PSH, ATR - Signal-activated effectors
  *
- * Total: 17 amino acid types
+ * Total: 21 amino acid types
  */
 
 /**
@@ -249,11 +251,74 @@ export const AMINO_ACID_TYPES = {
     mass: 200,
     catalytic: 'translation',  // Catalyzes RNA -> Protein
     description: 'Catalyzes protein synthesis (translation). Reads mRNA codons, adds amino acids.'
+  },
+
+  // ========================================================================
+  // SIGNALING - Logic gates and signal propagation
+  // ========================================================================
+
+  SIG: {
+    name: 'Signal',
+    code: 'SIG',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 100,
+    signaling: 'conductor',  // Propagates signal if any adjacent residue is powered
+    description: 'Conducts signals. Becomes "on" if any adjacent powered residue is on (implicit OR).'
+  },
+
+  AND: {
+    name: 'And-Gate',
+    code: 'AND',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 110,
+    signaling: 'and_gate',  // Only powered if ALL adjacent powered residues are on
+    description: 'Logic AND gate. Only "on" if ALL adjacent signal-capable residues are on.'
+  },
+
+  // ========================================================================
+  // ACTUATORS - Respond to signals, perform actions (actions not yet implemented)
+  // ========================================================================
+
+  PSH: {
+    name: 'Push',
+    code: 'PSH',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 130,
+    signaling: 'actuator',  // Responds to signals
+    actuator: 'push',       // When activated + adjacent bound molecule + ATP → push molecule one hex
+    description: 'Pusher. When activated and adjacent to bound molecule, consumes ATP to push it one hex.'
+  },
+
+  ATR: {
+    name: 'Attractor',
+    code: 'ATR',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 105,
+    signaling: 'actuator',  // Responds to signals
+    actuator: 'attract_atp', // When activated, attracts free ATP to adjacent hex
+    description: 'ATP Attractor. When activated, attracts free-floating ATP to an adjacent hex.'
   }
 };
 
 /**
  * Energy constants (all in eV)
+ *
+ * TODO (low priority): ATP consumption should eventually have two side effects:
+ *   1) Deplete ATP concentration near the consuming molecule
+ *   2) Increase local temperature around the molecule (heat dissipation)
+ * These effects would add realism and potential puzzle mechanics.
  */
 export const ENERGY_CONSTANTS = {
   // Angular/folding preference
@@ -401,6 +466,64 @@ export function getNucleotideBindingAminoAcids() {
 export function getCatalyticAminoAcids() {
   return Object.keys(AMINO_ACID_TYPES).filter(code =>
     AMINO_ACID_TYPES[code].catalytic !== undefined
+  );
+}
+
+/**
+ * Get the signaling type of an amino acid
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {string|null} The signaling type ('conductor', 'and_gate'), or null
+ */
+export function getSignalingType(aminoAcidCode) {
+  const aa = AMINO_ACID_TYPES[aminoAcidCode];
+  return aa?.signaling || null;
+}
+
+/**
+ * Check if amino acid can conduct signals
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {boolean} True if the amino acid participates in signaling
+ */
+export function canSignal(aminoAcidCode) {
+  return getSignalingType(aminoAcidCode) !== null;
+}
+
+/**
+ * Get all signaling amino acids
+ * @returns {string[]} Array of amino acid codes
+ */
+export function getSignalingAminoAcids() {
+  return Object.keys(AMINO_ACID_TYPES).filter(code =>
+    AMINO_ACID_TYPES[code].signaling !== undefined
+  );
+}
+
+/**
+ * Get the actuator type of an amino acid
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {string|null} The actuator type ('push', 'attract_atp'), or null
+ */
+export function getActuatorType(aminoAcidCode) {
+  const aa = AMINO_ACID_TYPES[aminoAcidCode];
+  return aa?.actuator || null;
+}
+
+/**
+ * Check if amino acid is an actuator (responds to signals, performs actions)
+ * @param {string} aminoAcidCode - The amino acid type code
+ * @returns {boolean} True if the amino acid is an actuator
+ */
+export function isActuator(aminoAcidCode) {
+  return getActuatorType(aminoAcidCode) !== null;
+}
+
+/**
+ * Get all actuator amino acids
+ * @returns {string[]} Array of amino acid codes
+ */
+export function getActuatorAminoAcids() {
+  return Object.keys(AMINO_ACID_TYPES).filter(code =>
+    AMINO_ACID_TYPES[code].actuator !== undefined
   );
 }
 
