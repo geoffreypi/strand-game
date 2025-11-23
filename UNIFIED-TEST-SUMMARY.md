@@ -15,7 +15,7 @@ This new file consolidates ALL unique test coverage into a single comprehensive 
 ### Test Breakdown:
 
 1. **DNA Rendering (3 tests)** - Unique coverage not in other files
-   - Simple DNA with hydrogen bonds
+   - Simple DNA with hex grid layout
    - Mismatched length error
    - Single base pair
 

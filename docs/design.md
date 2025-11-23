@@ -143,31 +143,32 @@
 
 **Double Helix → Double Strand (no helix in game)**
 - Two parallel strands with complementary base pairs
-- One hex gap between strands (middle row has linkage symbols)
-- Gap contains X-shaped symbols showing hydrogen bonding
+- Multiple hex rows of vertical spacing between strands (shown with colons)
 - Each strand mostly straight, occasional 60° corners allowed
 - Both strands conform to hex grid alignment
 - **Directionality is critical and must be displayed**
 
-**Visual Representation:**
+**Visual Representation (hex grid layout):**
 ```
-3'-<A>-<C>-<G>-<T>-5'  (top strand, left to right = 3' to 5')
-   | | ||| ||| | |     (hydrogen bonds: | | for A-T, ||| for G-C)
-5'-<T>-<G>-<C>-<A>-3'  (bottom strand, left to right = 5' to 3')
+5'-<A>-<C>-<G>-<T>-3'  (top strand, left to right = 5' to 3')
+    :   :   :   :      (vertical spacing between strands)
+    :   :   :   :      (fits hex grid structure)
+    :   :   :   :
+3'-<T>-<G>-<C>-<A>-5'  (bottom strand, left to right = 3' to 5')
 
 Example with complementary pairing:
-- Top: A-C-G-T (reading 3' → 5')
-- Bottom: T-G-C-A (reading 5' → 3')
-- Base pairing: A-T (2 bonds), C-G (3 bonds), G-C (3 bonds), T-A (2 bonds)
-- Hydrogen bonds shown vertically between paired bases
+- Top: A-C-G-T (reading 5' → 3')
+- Bottom: T-G-C-A (reading 3' → 5')
+- Base pairing: A-T, C-G, G-C, T-A
+- Vertical colons show spacing between parallel strands in hex grid
 ```
 
 **Critical Details:**
-- **Top strand:** 3' to 5' direction (left to right)
-- **Bottom strand:** 5' to 3' direction (left to right)  
-- **Directionality labels:** Show "3'" and "5'" at the ends of both strands
-- **Middle row hexes:** X-shaped linkage symbols (representing hydrogen bonds)
-- **Complementary pairing:** A↔T (2 H-bonds), G↔C (3 H-bonds)
+- **Top strand:** 5' to 3' direction (left to right)
+- **Bottom strand:** 3' to 5' direction (left to right)
+- **Directionality labels:** Show "5'" and "3'" at the ends of both strands
+- **Vertical spacing:** Colons (`:`) show the hex grid gap between strands
+- **Complementary pairing:** A↔T, G↔C (enforced)
 
 **Constraints:**
 - Strands maintain exactly one hex spacing (middle row between them)

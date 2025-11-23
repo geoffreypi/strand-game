@@ -202,7 +202,7 @@
                 return lines.join('\n');
             }
 
-            // Render DNA structure
+            // Render DNA structure with hex grid layout
             static renderDNA(topSequence, bottomSequence) {
                 if (topSequence.length !== bottomSequence.length) {
                     return "ERROR: Top and bottom sequences must be same length";
@@ -211,33 +211,16 @@
                 const length = topSequence.length;
 
                 // Build top line with directional markers and <> around bases
-                let topLine = "3'-" + topSequence.split('').map(b => '<' + b + '>').join('-') + "-5'";
+                let topLine = "5'-" + topSequence.split('').map(b => '<' + b + '>').join('-') + "-3'";
 
-                // Build middle line with hydrogen bonds
-                // G-C pairs have 3 hydrogen bonds (|||), A-T pairs have 2 hydrogen bonds (| |)
-                let middleLine = "   ";  // Offset for alignment
-                for (let i = 0; i < length; i++) {
-                    const topBase = topSequence[i];
-                    const bottomBase = bottomSequence[i];
-
-                    // Determine hydrogen bond representation
-                    let bond;
-                    if ((topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')) {
-                        bond = "|||";  // 3 hydrogen bonds
-                    } else {
-                        bond = "| |";  // 2 hydrogen bonds (A-T or other pairs)
-                    }
-
-                    middleLine += bond;
-                    if (i < length - 1) {
-                        middleLine += " ";
-                    }
-                }
+                // Build middle lines with vertical colons for hex grid spacing
+                let middleLine = "    " + topSequence.split('').map(() => ':').join('   ');
 
                 // Build bottom line with directional markers and <> around bases
-                let bottomLine = "5'-" + bottomSequence.split('').map(b => '<' + b + '>').join('-') + "-3'";
+                let bottomLine = "3'-" + bottomSequence.split('').map(b => '<' + b + '>').join('-') + "-5'";
 
-                return topLine + '\n' + middleLine + '\n' + bottomLine;
+                // Return with 3 rows of colons to show hex grid spacing
+                return topLine + '\n' + middleLine + '\n' + middleLine + '\n' + middleLine + '\n' + bottomLine;
             }
 
             // Render RNA structure (straight)

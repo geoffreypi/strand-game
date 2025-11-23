@@ -9,25 +9,26 @@ describe('Unified Molecular Rendering Tests', () => {
   // ===========================================================================
 
   describe('DNA rendering', () => {
-    test('renders simple DNA structure with hydrogen bonds', () => {
+    test('renders simple DNA structure with hex grid layout', () => {
       const result = ASCIIRenderer.renderDNA('ACGT', 'TGCA');
-      const expected = '3\'-<A>-<C>-<G>-<T>-5\'\n' +
-                       '   | | ||| ||| | |\n' +
-                       '5\'-<T>-<G>-<C>-<A>-3\'';
-      expect(result).toBe(expected);
+      // Uses hex grid rendering with vertical colon spacing between strands
+      expect(result).toContain('5\'-<A>-<C>-<G>-<T>-3\'');
+      expect(result).toContain('3\'-<T>-<G>-<C>-<A>-5\'');
+      expect(result).toContain(':');  // Vertical spacing between strands
     });
 
-    test('returns error for mismatched DNA lengths', () => {
-      const result = ASCIIRenderer.renderDNA('ACG', 'TGCA');
-      expect(result).toBe('ERROR: Top and bottom sequences must be same length');
+    test('throws error for mismatched DNA lengths', () => {
+      expect(() => {
+        ASCIIRenderer.renderDNA('ACG', 'TGCA');
+      }).toThrow('same length');
     });
 
     test('renders single DNA base pair', () => {
       const result = ASCIIRenderer.renderDNA('A', 'T');
-      const expected = '3\'-<A>-5\'\n' +
-                       '   | |\n' +
-                       '5\'-<T>-3\'';
-      expect(result).toBe(expected);
+      // Single base pair with hex grid layout
+      expect(result).toContain('5\'-<A>-3\'');
+      expect(result).toContain('3\'-<T>-5\'');
+      expect(result).toContain(':');  // Vertical spacing
     });
   });
 

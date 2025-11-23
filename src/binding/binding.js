@@ -1,20 +1,98 @@
 /**
  * Binding System for Protein-DNA Interactions
  *
- * Handles automatic detection and binding of proteins to DNA based on:
+ * Handles detection and binding of proteins to DNA based on:
  * - Binding amino acids (BTA, BTC, BTG, BTT) in proteins
  * - Complementary nucleotide sequences in DNA
- * - Physical shape compatibility (protein must fit along DNA without overlap)
+ * - Hex grid geometry (proper neighbor directions)
+ *
+ * Binding Rules:
+ * 1. BTx residues must be contiguous in the protein
+ * 2. Matching DNA segment must be straight (no bends in binding region)
+ * 3. Protein and DNA are immediately adjacent (direct hex neighbors)
+ * 4. Binding direction follows protein's N→C orientation:
+ *    - Above DNA, going East: SE connections
+ *    - Above DNA, going West: SW connections
+ *    - Below DNA, going East: NE connections
+ *    - Below DNA, going West: NW connections
  */
 
 import { getBindingTarget } from '../data/amino-acids.js';
 
+// =============================================================================
+// Hex Grid Utilities
+// =============================================================================
+
+/**
+ * Get the 6 neighbors of a hex in axial coordinates
+ * Returns { E, W, NE, NW, SE, SW } with their {q, r} positions
+ */
+export function getHexNeighbors(q, r) {
+  return {
+    E:  { q: q + 1, r: r },
+    W:  { q: q - 1, r: r },
+    NE: { q: q + 1, r: r - 1 },
+    NW: { q: q,     r: r - 1 },
+    SE: { q: q,     r: r + 1 },
+    SW: { q: q - 1, r: r + 1 }
+  };
+}
+
+/**
+ * Check if two hex positions are equal
+ */
+export function hexEquals(a, b) {
+  return a.q === b.q && a.r === b.r;
+}
+
+/**
+ * Check if two hexes are neighbors and return the direction
+ * @returns {string|null} Direction from a to b ('E', 'W', 'NE', 'NW', 'SE', 'SW') or null
+ */
+export function getNeighborDirection(from, to) {
+  const neighbors = getHexNeighbors(from.q, from.r);
+  for (const [dir, pos] of Object.entries(neighbors)) {
+    if (hexEquals(pos, to)) {
+      return dir;
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if a sequence of hex positions forms a straight line
+ * @param {Array} positions - Array of {q, r} positions
+ * @returns {Object} { straight: boolean, direction: string|null }
+ */
+export function isHexLineStraight(positions) {
+  if (positions.length <= 1) {
+    return { straight: true, direction: null };
+  }
+
+  // Get direction from first to second position
+  const firstDir = getNeighborDirection(positions[0], positions[1]);
+  if (!firstDir) {
+    return { straight: false, direction: null, reason: 'Non-adjacent hexes' };
+  }
+
+  // Check all subsequent positions use same direction
+  for (let i = 2; i < positions.length; i++) {
+    const dir = getNeighborDirection(positions[i - 1], positions[i]);
+    if (dir !== firstDir) {
+      return { straight: false, direction: null, reason: 'Direction change' };
+    }
+  }
+
+  return { straight: true, direction: firstDir };
+}
+
+// =============================================================================
+// Pattern Extraction (kept from original)
+// =============================================================================
+
 /**
  * Extract binding pattern from a protein
- * Returns array of { position, aminoAcid, bindsTo } for each BT* residue
- *
- * @param {Object} protein - Protein with aminoAcids array
- * @returns {Array} Binding sites in the protein
+ * Returns array of { position, aminoAcid, bindsTo, hexPosition } for each BT* residue
  */
 export function extractBindingPattern(protein) {
   const pattern = [];
@@ -38,10 +116,6 @@ export function extractBindingPattern(protein) {
 
 /**
  * Extract nucleotide sequence from DNA strand
- *
- * @param {Object} dna - DNA object with topHexes or bottomHexes
- * @param {string} strand - 'top' or 'bottom'
- * @returns {Array} Array of { position, nucleotide, hexPosition }
  */
 export function extractDNASequence(dna, strand = 'top') {
   const hexes = strand === 'top' ? dna.topHexes : dna.bottomHexes;
@@ -55,17 +129,12 @@ export function extractDNASequence(dna, strand = 'top') {
 
 /**
  * Find all positions where a binding pattern matches a DNA sequence
- *
- * @param {Array} bindingPattern - From extractBindingPattern()
- * @param {Array} dnaSequence - From extractDNASequence()
- * @returns {Array} Array of { dnaStartIndex, matches } for each valid match
  */
 export function findSequenceMatches(bindingPattern, dnaSequence) {
   if (bindingPattern.length === 0) return [];
 
   const matches = [];
 
-  // Slide along DNA looking for matches
   for (let dnaStart = 0; dnaStart <= dnaSequence.length - bindingPattern.length; dnaStart++) {
     let isMatch = true;
     const matchDetails = [];
@@ -75,8 +144,6 @@ export function findSequenceMatches(bindingPattern, dnaSequence) {
       const nucleotide = dnaSequence[dnaPos].nucleotide;
       const bindTarget = bindingPattern[i].bindsTo;
 
-      // Check if this binding AA can bind to this nucleotide
-      // (BTT can bind to both T and U)
       const canBind = bindTarget === nucleotide ||
                       (bindTarget === 'T' && nucleotide === 'U');
 
@@ -104,16 +171,12 @@ export function findSequenceMatches(bindingPattern, dnaSequence) {
 
 /**
  * Check if binding sites in protein are contiguous (adjacent in sequence)
- * Non-contiguous binding sites may still work but need different geometry checks
- *
- * @param {Array} bindingPattern - From extractBindingPattern()
- * @returns {boolean} True if all binding AAs are adjacent in sequence
  */
 export function isContiguousBindingPattern(bindingPattern) {
   if (bindingPattern.length <= 1) return true;
 
   for (let i = 1; i < bindingPattern.length; i++) {
-    if (bindingPattern[i].position !== bindingPattern[i-1].position + 1) {
+    if (bindingPattern[i].position !== bindingPattern[i - 1].position + 1) {
       return false;
     }
   }
@@ -121,182 +184,173 @@ export function isContiguousBindingPattern(bindingPattern) {
   return true;
 }
 
+// =============================================================================
+// New Hex-Aware Geometry
+// =============================================================================
+
 /**
- * Calculate the relative positions of binding sites in the protein
- * Returns vectors from first binding site to each subsequent one
+ * Determine protein direction (N→C) from hex positions
+ * @param {Array} positions - Array of {q, r} for contiguous amino acids
+ * @returns {string|null} 'E' or 'W' for horizontal proteins, null if not straight/horizontal
+ */
+export function getProteinDirection(positions) {
+  if (positions.length <= 1) return null;
+
+  const lineInfo = isHexLineStraight(positions);
+  if (!lineInfo.straight) return null;
+
+  // For binding, we care about E/W direction
+  if (lineInfo.direction === 'E') return 'E';
+  if (lineInfo.direction === 'W') return 'W';
+
+  // Protein is not horizontal - can't bind in current model
+  return null;
+}
+
+/**
+ * Determine the expected binding direction based on:
+ * - Protein position relative to DNA (above/below)
+ * - Protein N→C direction (E/W)
+ *
+ * @param {string} proteinDirection - 'E' or 'W'
+ * @param {string} relativePosition - 'above' or 'below'
+ * @returns {string} Expected binding direction ('SE', 'SW', 'NE', 'NW')
+ */
+export function getExpectedBindingDirection(proteinDirection, relativePosition) {
+  if (relativePosition === 'above') {
+    return proteinDirection === 'E' ? 'SE' : 'SW';
+  } else {
+    return proteinDirection === 'E' ? 'NE' : 'NW';
+  }
+}
+
+/**
+ * Check if protein binding sites are properly adjacent to DNA nucleotides
+ * with correct binding direction based on N→C orientation.
  *
  * @param {Array} bindingPattern - From extractBindingPattern()
- * @returns {Array} Array of {dx, dy} offsets from first binding site
- */
-export function getBindingGeometry(bindingPattern) {
-  if (bindingPattern.length === 0) return [];
-
-  const first = bindingPattern[0].hexPosition;
-
-  // Convert hex to cartesian for geometry
-  const toCartesian = (hex) => ({
-    x: hex.q + hex.r * 0.5,
-    y: hex.r * Math.sqrt(3) / 2
-  });
-
-  const firstCart = toCartesian(first);
-
-  return bindingPattern.map(bp => {
-    const cart = toCartesian(bp.hexPosition);
-    return {
-      dx: cart.x - firstCart.x,
-      dy: cart.y - firstCart.y,
-      position: bp.position,
-      bindsTo: bp.bindsTo
-    };
-  });
-}
-
-/**
- * Calculate the relative positions of nucleotides in DNA
- *
  * @param {Array} dnaSequence - From extractDNASequence()
- * @param {number} startIndex - Starting position in DNA
- * @param {number} length - Number of nucleotides
- * @returns {Array} Array of {dx, dy} offsets from first nucleotide
+ * @param {number} dnaStartIndex - Where in DNA the match starts
+ * @returns {Object} { valid, bindingDirection, relativePosition, reason }
  */
-export function getDNAGeometry(dnaSequence, startIndex, length) {
-  if (length === 0 || startIndex + length > dnaSequence.length) return [];
-
-  const toCartesian = (hex) => ({
-    x: hex.q + hex.r * 0.5,
-    y: hex.r * Math.sqrt(3) / 2
-  });
-
-  const first = dnaSequence[startIndex].hexPosition;
-  const firstCart = toCartesian(first);
-
-  const geometry = [];
-  for (let i = 0; i < length; i++) {
-    const nuc = dnaSequence[startIndex + i];
-    const cart = toCartesian(nuc.hexPosition);
-    geometry.push({
-      dx: cart.x - firstCart.x,
-      dy: cart.y - firstCart.y,
-      position: nuc.position,
-      nucleotide: nuc.nucleotide
-    });
+export function checkHexGeometry(bindingPattern, dnaSequence, dnaStartIndex) {
+  if (bindingPattern.length === 0) {
+    return { valid: false, reason: 'Empty binding pattern' };
   }
 
-  return geometry;
-}
-
-/**
- * Check if protein binding geometry matches DNA geometry
- * The protein's binding sites must be able to align with DNA nucleotides
- *
- * For a straight protein binding to straight DNA, the binding sites
- * should form a line parallel to the DNA strand.
- *
- * @param {Array} proteinGeometry - From getBindingGeometry()
- * @param {Array} dnaGeometry - From getDNAGeometry()
- * @param {number} tolerance - Maximum allowed distance mismatch (default 0.5)
- * @returns {Object} { compatible: boolean, offset: {x, y}, rotation: number }
- */
-export function checkGeometryCompatibility(proteinGeometry, dnaGeometry, tolerance = 0.5) {
-  if (proteinGeometry.length !== dnaGeometry.length) {
-    return { compatible: false, reason: 'Length mismatch' };
+  // Check binding pattern is contiguous in protein sequence
+  if (!isContiguousBindingPattern(bindingPattern)) {
+    return { valid: false, reason: 'Binding sites not contiguous in protein' };
   }
 
-  if (proteinGeometry.length === 0) {
-    return { compatible: true, offset: { x: 0, y: 0 }, rotation: 0 };
+  // Get protein hex positions for binding sites
+  const proteinPositions = bindingPattern.map(bp => bp.hexPosition);
+
+  // Check protein binding region is straight
+  const proteinLineInfo = isHexLineStraight(proteinPositions);
+  if (!proteinLineInfo.straight) {
+    return { valid: false, reason: 'Protein binding region not straight' };
   }
 
-  if (proteinGeometry.length === 1) {
-    // Single binding site always compatible (just needs to be adjacent)
-    return { compatible: true, offset: { x: 0, y: 0 }, rotation: 0 };
+  // Get DNA hex positions for binding region
+  const dnaPositions = [];
+  for (let i = 0; i < bindingPattern.length; i++) {
+    dnaPositions.push(dnaSequence[dnaStartIndex + i].hexPosition);
   }
 
-  // For multiple binding sites, check if the pattern of offsets matches
-  // We need to find if there's a rotation that aligns protein geometry to DNA geometry
-
-  // Calculate vectors between consecutive points
-  const proteinVectors = [];
-  const dnaVectors = [];
-
-  for (let i = 1; i < proteinGeometry.length; i++) {
-    proteinVectors.push({
-      dx: proteinGeometry[i].dx - proteinGeometry[i-1].dx,
-      dy: proteinGeometry[i].dy - proteinGeometry[i-1].dy
-    });
-    dnaVectors.push({
-      dx: dnaGeometry[i].dx - dnaGeometry[i-1].dx,
-      dy: dnaGeometry[i].dy - dnaGeometry[i-1].dy
-    });
+  // Check DNA binding region is straight
+  const dnaLineInfo = isHexLineStraight(dnaPositions);
+  if (!dnaLineInfo.straight) {
+    return { valid: false, reason: 'DNA binding region not straight' };
   }
 
-  // Check if vectors match (allowing for some tolerance)
-  // The protein may need to be offset perpendicular to the DNA
-  let totalMismatch = 0;
-
-  for (let i = 0; i < proteinVectors.length; i++) {
-    const pv = proteinVectors[i];
-    const dv = dnaVectors[i];
-
-    // Calculate distance between vectors
-    const dist = Math.sqrt(
-      Math.pow(pv.dx - dv.dx, 2) +
-      Math.pow(pv.dy - dv.dy, 2)
-    );
-
-    totalMismatch += dist;
+  // Both must be horizontal (E or W)
+  const proteinDir = getProteinDirection(proteinPositions);
+  if (!proteinDir) {
+    return { valid: false, reason: 'Protein not horizontal' };
   }
 
-  const avgMismatch = totalMismatch / proteinVectors.length;
+  // Check each binding site is adjacent to its target nucleotide
+  const firstProteinPos = proteinPositions[0];
+  const firstDnaPos = dnaPositions[0];
+  const bindingDir = getNeighborDirection(firstProteinPos, firstDnaPos);
 
-  if (avgMismatch <= tolerance) {
+  if (!bindingDir) {
+    return { valid: false, reason: 'Protein not adjacent to DNA' };
+  }
+
+  // Determine relative position from binding direction
+  let relativePosition;
+  if (bindingDir === 'SE' || bindingDir === 'SW') {
+    relativePosition = 'above';
+  } else if (bindingDir === 'NE' || bindingDir === 'NW') {
+    relativePosition = 'below';
+  } else {
+    return { valid: false, reason: `Invalid binding direction: ${bindingDir}` };
+  }
+
+  // Check expected direction matches actual
+  const expectedDir = getExpectedBindingDirection(proteinDir, relativePosition);
+  if (bindingDir !== expectedDir) {
     return {
-      compatible: true,
-      offset: { x: 0, y: 0 },  // TODO: calculate actual offset needed
-      avgMismatch
+      valid: false,
+      reason: `Binding direction ${bindingDir} doesn't match N→C direction (expected ${expectedDir})`
     };
+  }
+
+  // Verify all binding sites use the same direction
+  for (let i = 1; i < bindingPattern.length; i++) {
+    const dir = getNeighborDirection(proteinPositions[i], dnaPositions[i]);
+    if (dir !== bindingDir) {
+      return { valid: false, reason: `Inconsistent binding directions at position ${i}` };
+    }
   }
 
   return {
-    compatible: false,
-    reason: 'Geometry mismatch',
-    avgMismatch
+    valid: true,
+    bindingDirection: bindingDir,
+    relativePosition: relativePosition,
+    proteinDirection: proteinDir
   };
 }
 
 /**
  * Find all valid binding configurations between a protein and DNA
- *
- * @param {Object} protein - Protein with aminoAcids array (with positions)
- * @param {Object} dna - DNA with topHexes and bottomHexes
- * @returns {Array} Array of valid binding configurations
  */
 export function findBindingConfigurations(protein, dna) {
   const bindingPattern = extractBindingPattern(protein);
 
   if (bindingPattern.length === 0) {
-    return [];  // No binding amino acids in protein
+    return [];
+  }
+
+  // Must have contiguous binding sites
+  if (!isContiguousBindingPattern(bindingPattern)) {
+    return [];
   }
 
   const configurations = [];
 
-  // Check both strands
   for (const strand of ['top', 'bottom']) {
     const dnaSequence = extractDNASequence(dna, strand);
     const sequenceMatches = findSequenceMatches(bindingPattern, dnaSequence);
 
     for (const match of sequenceMatches) {
-      const proteinGeometry = getBindingGeometry(bindingPattern);
-      const dnaGeometry = getDNAGeometry(dnaSequence, match.dnaStartIndex, bindingPattern.length);
-      const geometryCheck = checkGeometryCompatibility(proteinGeometry, dnaGeometry);
+      const geometryCheck = checkHexGeometry(
+        bindingPattern,
+        dnaSequence,
+        match.dnaStartIndex
+      );
 
-      if (geometryCheck.compatible) {
+      if (geometryCheck.valid) {
         configurations.push({
           strand,
           dnaStartIndex: match.dnaStartIndex,
           matches: match.matches,
-          geometryCheck,
-          bindingStrength: bindingPattern.length  // More binding sites = stronger
+          bindingDirection: geometryCheck.bindingDirection,
+          relativePosition: geometryCheck.relativePosition,
+          proteinDirection: geometryCheck.proteinDirection,
+          bindingStrength: bindingPattern.length
         });
       }
     }
@@ -304,6 +358,10 @@ export function findBindingConfigurations(protein, dna) {
 
   return configurations;
 }
+
+// =============================================================================
+// Bound Complex and Manager
+// =============================================================================
 
 /**
  * Represents a bound complex (protein bound to DNA)
@@ -316,60 +374,50 @@ export class BoundComplex {
     this.boundAt = Date.now();
   }
 
-  /**
-   * Get the binding strength (number of binding sites)
-   */
   get strength() {
     return this.configuration.bindingStrength;
   }
 
-  /**
-   * Get which strand the protein is bound to
-   */
   get strand() {
     return this.configuration.strand;
   }
 
-  /**
-   * Get the DNA position where binding starts
-   */
   get dnaPosition() {
     return this.configuration.dnaStartIndex;
+  }
+
+  get bindingDirection() {
+    return this.configuration.bindingDirection;
+  }
+
+  get relativePosition() {
+    return this.configuration.relativePosition;
   }
 }
 
 /**
- * Binding Manager - tracks all molecules and manages automatic binding
+ * Binding Manager - tracks molecules and manages binding
  */
 export class BindingManager {
   constructor() {
-    this.proteins = new Map();  // id -> protein
-    this.dnas = new Map();      // id -> dna
-    this.boundComplexes = [];   // Active bound complexes
+    this.proteins = new Map();
+    this.dnas = new Map();
+    this.boundComplexes = [];
     this.nextId = 1;
   }
 
-  /**
-   * Register a protein for binding detection
-   */
   addProtein(protein) {
     const id = this.nextId++;
     this.proteins.set(id, { id, protein, boundTo: null });
     return id;
   }
 
-  /**
-   * Register a DNA molecule for binding detection
-   */
   addDNA(dna) {
     const id = this.nextId++;
     this.dnas.set(id, { id, dna, boundProteins: [] });
     return id;
   }
 
-  /**
-   * Remove a protein
-   */
   removeProtein(id) {
     const entry = this.proteins.get(id);
     if (entry && entry.boundTo) {
@@ -378,13 +426,9 @@ export class BindingManager {
     this.proteins.delete(id);
   }
 
-  /**
-   * Remove a DNA molecule
-   */
   removeDNA(id) {
     const entry = this.dnas.get(id);
     if (entry) {
-      // Unbind all proteins from this DNA
       for (const proteinId of entry.boundProteins) {
         const proteinEntry = this.proteins.get(proteinId);
         if (proteinEntry) {
@@ -395,18 +439,11 @@ export class BindingManager {
     this.dnas.delete(id);
   }
 
-  /**
-   * Check for and create new bindings
-   * This is the "background function" that runs periodically
-   *
-   * @returns {Array} New bindings created this tick
-   */
   checkForBindings() {
     const newBindings = [];
 
-    // Check each unbound protein against each DNA
     for (const [proteinId, proteinEntry] of this.proteins) {
-      if (proteinEntry.boundTo) continue;  // Already bound
+      if (proteinEntry.boundTo) continue;
 
       for (const [dnaId, dnaEntry] of this.dnas) {
         const configurations = findBindingConfigurations(
@@ -415,12 +452,10 @@ export class BindingManager {
         );
 
         if (configurations.length > 0) {
-          // Use the strongest binding configuration
           const bestConfig = configurations.reduce((a, b) =>
             a.bindingStrength > b.bindingStrength ? a : b
           );
 
-          // Create the binding
           const complex = new BoundComplex(
             proteinEntry.protein,
             dnaEntry.dna,
@@ -438,7 +473,7 @@ export class BindingManager {
             configuration: bestConfig
           });
 
-          break;  // Protein can only bind to one DNA at a time
+          break;
         }
       }
     }
@@ -446,9 +481,6 @@ export class BindingManager {
     return newBindings;
   }
 
-  /**
-   * Unbind a protein from its DNA
-   */
   unbind(proteinId) {
     const proteinEntry = this.proteins.get(proteinId);
     if (!proteinEntry || !proteinEntry.boundTo) return false;
@@ -458,7 +490,6 @@ export class BindingManager {
       dnaEntry.boundProteins = dnaEntry.boundProteins.filter(id => id !== proteinId);
     }
 
-    // Remove from bound complexes
     this.boundComplexes = this.boundComplexes.filter(c =>
       c.protein !== proteinEntry.protein
     );
@@ -467,16 +498,10 @@ export class BindingManager {
     return true;
   }
 
-  /**
-   * Get all current bound complexes
-   */
   getBoundComplexes() {
     return [...this.boundComplexes];
   }
 
-  /**
-   * Check if a protein is bound
-   */
   isProteinBound(proteinId) {
     const entry = this.proteins.get(proteinId);
     return entry ? entry.boundTo !== null : false;

@@ -319,40 +319,8 @@ class ASCIIRenderer {
 
   // Render DNA structure
   static renderDNA(topSequence, bottomSequence) {
-    if (topSequence.length !== bottomSequence.length) {
-      return 'ERROR: Top and bottom sequences must be same length';
-    }
-
-    const length = topSequence.length;
-
-    // Build top line with directional markers and <> around bases
-    let topLine = '3\'-' + topSequence.split('').map(b => '<' + b + '>').join('-') + '-5\'';
-
-    // Build middle line with hydrogen bonds
-    // G-C pairs have 3 hydrogen bonds (|||), A-T pairs have 2 hydrogen bonds (| |)
-    let middleLine = '   ';  // Offset for alignment
-    for (let i = 0; i < length; i++) {
-      const topBase = topSequence[i];
-      const bottomBase = bottomSequence[i];
-
-      // Determine hydrogen bond representation
-      let bond;
-      if ((topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')) {
-        bond = '|||';  // 3 hydrogen bonds
-      } else {
-        bond = '| |';  // 2 hydrogen bonds (A-T or other pairs)
-      }
-
-      middleLine += bond;
-      if (i < length - 1) {
-        middleLine += ' ';
-      }
-    }
-
-    // Build bottom line with directional markers and <> around bases
-    let bottomLine = '5\'-' + bottomSequence.split('').map(b => '<' + b + '>').join('-') + '-3\'';
-
-    return topLine + '\n' + middleLine + '\n' + bottomLine;
+    // Delegate to renderDNAWithBends with no bends for consistent hex grid rendering
+    return this.renderDNAWithBends(topSequence, bottomSequence, []);
   }
 
   /**

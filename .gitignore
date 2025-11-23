@@ -36,3 +36,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Test artifacts
+.test-visualizations.json
+test-report.html

@@ -20,11 +20,11 @@
 
 ### Working Prototypes
 - **ASCII Renderer** (`src/renderers/ascii-renderer-standalone.html`)
-  - DNA with hydrogen bonds (|| for AT, ||| for GC)
+  - DNA with hex grid layout (vertical colons for strand spacing)
   - RNA with 60° bends
   - Proteins with 60° and 120° bends
   - Interactive test interface
-  - All molecules use proper formatting
+  - All molecules use proper hex grid formatting
 
 - **v1 Prototype** (`prototypes/v1-transcription-vanilla.html`)
   - Basic grid-based transcription mechanic

@@ -179,19 +179,11 @@
                 if (topSequence.length !== bottomSequence.length) {
                     return 'ERROR: Top and bottom sequences must be same length';
                 }
-                const length = topSequence.length;
-                let topLine = "3'-" + topSequence.split('').map(b => '<' + b + '>').join('-') + "-5'";
-                let middleLine = '   ';
-                for (let i = 0; i < length; i++) {
-                    const topBase = topSequence[i];
-                    const bottomBase = bottomSequence[i];
-                    let bond = (topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')
-                        ? '|||' : '| |';
-                    middleLine += bond;
-                    if (i < length - 1) middleLine += ' ';
-                }
-                let bottomLine = "5'-" + bottomSequence.split('').map(b => '<' + b + '>').join('-') + "-3'";
-                return topLine + '\n' + middleLine + '\n' + bottomLine;
+                // Hex grid layout with vertical colons for strand spacing
+                let topLine = "5'-" + topSequence.split('').map(b => '<' + b + '>').join('-') + "-3'";
+                let middleLine = '    ' + topSequence.split('').map(() => ':').join('   ');
+                let bottomLine = "3'-" + bottomSequence.split('').map(b => '<' + b + '>').join('-') + "-5'";
+                return topLine + '\n' + middleLine + '\n' + middleLine + '\n' + middleLine + '\n' + bottomLine;
             }
 
             static renderProtein(aminoAcidSequence) {
@@ -542,16 +534,13 @@
                 ctx.fillStyle = '#000';
                 ctx.fillText(bottomNuc, x, dnaY + 20);
 
-                // Hydrogen bonds
-                ctx.strokeStyle = '#666';
-                ctx.lineWidth = 1;
-                const bonds = (topNuc === 'G' && bottomNuc === 'C') || (topNuc === 'C' && bottomNuc === 'G') ? 3 : 2;
-                for (let b = 0; b < bonds; b++) {
-                    const bx = x - 3 + b * 3;
+                // Vertical spacing between strands (hex grid style)
+                ctx.fillStyle = '#666';
+                for (let dot = 0; dot < 3; dot++) {
+                    const dotY = dnaY - 6 + dot * 6;
                     ctx.beginPath();
-                    ctx.moveTo(bx, dnaY - 8);
-                    ctx.lineTo(bx, dnaY + 8);
-                    ctx.stroke();
+                    ctx.arc(x, dotY, 1.5, 0, Math.PI * 2);
+                    ctx.fill();
                 }
             }
 
