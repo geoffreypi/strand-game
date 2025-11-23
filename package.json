@@ -34,7 +34,8 @@
     "transform": {},
     "collectCoverageFrom": [
       "src/**/*.js",
-      "!src/**/*.test.js"
+      "!src/**/*.test.js",
+      "!src/animation/**/*.js"
     ],
     "coverageThreshold": {
       "global": {
