@@ -58,20 +58,32 @@ describe('Physics Energy Calculations', () => {
   // ===========================================================================
 
   describe('angleToSteps', () => {
+    // INPUT: 0° angle with any direction
+    // EXPECTED: Returns 0 steps
+    // WHY: Straight (0°) means no angular change from backbone
     test('converts straight (0°) to 0 steps', () => {
       expect(angleToSteps(0, null)).toBe(0);
       expect(angleToSteps(0, 'left')).toBe(0);
       expect(angleToSteps(0, 'right')).toBe(0);
     });
 
+    // INPUT: 60° left bend
+    // EXPECTED: Returns +1 steps (positive = left)
+    // WHY: Hex grid has 6 directions; 60° = 1 step in direction index
     test('converts 60° left to +1 steps', () => {
       expect(angleToSteps(60, 'left')).toBe(1);
     });
 
+    // INPUT: 60° right bend
+    // EXPECTED: Returns -1 steps (negative = right)
+    // WHY: Right bends are represented as negative steps
     test('converts 60° right to -1 steps', () => {
       expect(angleToSteps(60, 'right')).toBe(-1);
     });
 
+    // INPUT: 120° left bend
+    // EXPECTED: Returns +2 steps
+    // WHY: 120° = 2 direction steps in hex grid
     test('converts 120° left to +2 steps', () => {
       expect(angleToSteps(120, 'left')).toBe(2);
     });
@@ -119,6 +131,9 @@ describe('Physics Energy Calculations', () => {
   // ===========================================================================
 
   describe('calculateElectrostaticEnergy', () => {
+    // INPUT: Protein with only neutral residues (STR, FLX)
+    // EXPECTED: Returns 0
+    // WHY: No charges = no electrostatic interactions
     test('returns 0 for neutral residues', () => {
       const protein = createStraightProtein(['STR', 'FLX', 'STR']);
       expect(calculateElectrostaticEnergy(protein)).toBe(0);
@@ -209,6 +224,9 @@ describe('Physics Energy Calculations', () => {
   // ===========================================================================
 
   describe('calculateHydrophobicEnergy', () => {
+    // INPUT: Protein with neutral residues (STR, FLX)
+    // EXPECTED: Returns 0
+    // WHY: Neutral residues have no hydrophobic character
     test('returns 0 for neutral residues', () => {
       const protein = createStraightProtein(['STR', 'FLX', 'STR']);
       expect(calculateHydrophobicEnergy(protein)).toBe(0);
@@ -370,6 +388,9 @@ describe('Physics Energy Calculations', () => {
   // ===========================================================================
 
   describe('calculateStericEnergy', () => {
+    // INPUT: Straight protein (well-separated residues)
+    // EXPECTED: Returns 0
+    // WHY: No steric clashes when residues are properly spaced
     test('returns 0 for well-separated residues', () => {
       const protein = createStraightProtein(['STR', 'STR', 'STR', 'STR']);
       expect(calculateStericEnergy(protein)).toBe(0);
@@ -927,6 +948,9 @@ describe('Physics Energy Calculations', () => {
   // ===========================================================================
 
   describe('DNA/RNA Binding Amino Acids', () => {
+    // INPUT: BTA amino acid, nucleotide 'A'
+    // EXPECTED: getBindingTarget returns 'A', canBindToNucleotide returns true
+    // WHY: BTA specifically recognizes adenine in DNA/RNA
     test('BTA binds to Adenine', () => {
       expect(getBindingTarget('BTA')).toBe('A');
       expect(canBindToNucleotide('BTA', 'A')).toBe(true);

@@ -1,12 +1,11 @@
 {
-  "name": "protein-folding-game",
+  "name": "strand-game",
   "version": "0.2.0",
-  "description": "A puzzle game inspired by Opus Magnum focused on molecular biology",
+  "description": "STRAND (STR-AND) - A puzzle game inspired by Opus Magnum focused on molecular biology",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:verbose": "VERBOSE_TESTS=1 NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "lint": "eslint src/**/*.js",
@@ -33,17 +32,9 @@
   "jest": {
     "testEnvironment": "jsdom",
     "transform": {},
-    "maxWorkers": 1,
-    "globalSetup": "<rootDir>/src/test-utils/global-setup.js",
-    "reporters": [
-      "default",
-      "<rootDir>/src/test-utils/test-reporter.js"
-    ],
-    "setupFilesAfterEnv": ["<rootDir>/src/test-utils/jest-setup.js"],
     "collectCoverageFrom": [
       "src/**/*.js",
-      "!src/**/*.test.js",
-      "!src/test-utils/**/*.js"
+      "!src/**/*.test.js"
     ],
     "coverageThreshold": {
       "global": {

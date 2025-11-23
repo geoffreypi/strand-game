@@ -9,6 +9,9 @@ describe('Unified Molecular Rendering Tests', () => {
   // ===========================================================================
 
   describe('DNA rendering', () => {
+    // INPUT: DNA top strand 'ACGT', bottom strand 'TGCA'
+    // EXPECTED: ASCII output with 5'/3' markers and colon spacing between strands
+    // WHY: Validates basic DNA rendering with proper directional markers
     test('renders simple DNA structure with hex grid layout', () => {
       const result = ASCIIRenderer.renderDNA('ACGT', 'TGCA');
       // Uses hex grid rendering with vertical colon spacing between strands
@@ -17,12 +20,18 @@ describe('Unified Molecular Rendering Tests', () => {
       expect(result).toContain(':');  // Vertical spacing between strands
     });
 
+    // INPUT: DNA strands of different lengths (3 vs 4)
+    // EXPECTED: Throws error mentioning 'same length'
+    // WHY: DNA strands must be equal length for valid double helix
     test('throws error for mismatched DNA lengths', () => {
       expect(() => {
         ASCIIRenderer.renderDNA('ACG', 'TGCA');
       }).toThrow('same length');
     });
 
+    // INPUT: Single base pair A-T
+    // EXPECTED: Renders with 5'/3' markers and colon spacing
+    // WHY: Edge case - minimal valid DNA structure
     test('renders single DNA base pair', () => {
       const result = ASCIIRenderer.renderDNA('A', 'T');
       // Single base pair with hex grid layout
@@ -37,6 +46,9 @@ describe('Unified Molecular Rendering Tests', () => {
   // ===========================================================================
 
   describe('DNA with bends (hex positioning)', () => {
+    // INPUT: Valid ACGT/TGCA and invalid ACGT/ACGT pairs
+    // EXPECTED: Valid pairs pass, non-complementary throws error
+    // WHY: DNA requires Watson-Crick base pairing (A-T, C-G)
     test('validates complementary base pairs', () => {
       // Valid pairs should work
       expect(() => {
@@ -49,12 +61,18 @@ describe('Unified Molecular Rendering Tests', () => {
       }).toThrow('Non-complementary base pair at position 0: A-A (expected A-T)');
     });
 
+    // INPUT: DNA with invalid base 'X'
+    // EXPECTED: Throws error identifying invalid base and position
+    // WHY: Only A, C, G, T are valid DNA bases
     test('rejects invalid bases', () => {
       expect(() => {
         dnaToHexGrid('ACXGT', 'TGXCA', []);
       }).toThrow('Invalid base \'X\' at position 2 in top strand');
     });
 
+    // INPUT: DNA 'ACGT'/'TGCA' with no bends
+    // EXPECTED: Top strand at r=0, bottom at r=2, both going East
+    // WHY: Straight DNA baseline for hex grid positioning
     test('positions straight DNA correctly', () => {
       const result = dnaToHexGrid('ACGT', 'TGCA', []);
 
@@ -75,6 +93,9 @@ describe('Unified Molecular Rendering Tests', () => {
       ]);
     });
 
+    // INPUT: DNA with 60° right bend at position 2
+    // EXPECTED: Top strand skips hexes around bend, bottom follows normal path
+    // WHY: Outer strand stretches on right bends; geometry must be consistent
     test('positions DNA with 60° right bend correctly', () => {
       const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 60, direction: 'right' }]);
 
@@ -101,6 +122,9 @@ describe('Unified Molecular Rendering Tests', () => {
       ]);
     });
 
+    // INPUT: DNA with 60° left bend at position 2
+    // EXPECTED: Top strand follows normal path, bottom strand stretches
+    // WHY: Inner strand compresses on left bends; outer stretches
     test('positions DNA with 60° left bend correctly', () => {
       const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 60, direction: 'left' }]);
 
@@ -127,6 +151,9 @@ describe('Unified Molecular Rendering Tests', () => {
       ]);
     });
 
+    // INPUT: DNA with 120° right bend at position 2
+    // EXPECTED: Top strand has complex skip pattern at sharp bend
+    // WHY: 120° bends require more strand stretching than 60° bends
     test('positions DNA with 120° right bend correctly', () => {
       const result = dnaToHexGrid('ACGTACG', 'TGCATGC', [{ position: 2, angle: 120, direction: 'right' }]);
 
@@ -1310,28 +1337,46 @@ describe('Unified Molecular Rendering Tests', () => {
   // ===========================================================================
 
   describe('applyBend helper function', () => {
+    // INPUT: Direction 0 (East), 60° right bend
+    // EXPECTED: Returns direction 1 (Southeast)
+    // WHY: Core bend logic - 60° right from E goes SE
     test('applies 60° right bend from East (0)', () => {
       expect(applyBend(0, 60, 'right')).toBe(1); // Southeast
     });
 
+    // INPUT: Direction 0 (East), 120° right bend
+    // EXPECTED: Returns direction 2 (Southwest)
+    // WHY: Sharp 120° right from E goes SW
     test('applies 120° right bend from East (0)', () => {
       expect(applyBend(0, 120, 'right')).toBe(2); // Southwest
     });
 
+    // INPUT: Direction 0 (East), 60° left bend
+    // EXPECTED: Returns direction 5 (Northeast)
+    // WHY: 60° left from E goes NE
     test('applies 60° left bend from East (0)', () => {
       expect(applyBend(0, 60, 'left')).toBe(5); // Northeast
     });
 
+    // INPUT: Direction 0 (East), 120° left bend
+    // EXPECTED: Returns direction 4 (Northwest)
+    // WHY: Sharp 120° left from E goes NW
     test('applies 120° left bend from East (0)', () => {
       expect(applyBend(0, 120, 'left')).toBe(4); // Northwest
     });
 
+    // INPUT: Direction 5 (Northeast), 60° right bend
+    // EXPECTED: Returns direction 0 (East) - wraps around
+    // WHY: Validates modular arithmetic for direction wrapping
     test('wraps around correctly (60° right from Northeast)', () => {
       expect(applyBend(5, 60, 'right')).toBe(0); // Back to East
     });
   });
 
   describe('moveInDirection helper function', () => {
+    // INPUT: Origin (0,0) and all 6 directions
+    // EXPECTED: Correct neighbor coordinates for each direction
+    // WHY: Core movement function for hex grid traversal
     test('moves in all 6 directions from origin', () => {
       expect(moveInDirection(0, 0, 0)).toEqual([1, 0]);   // East
       expect(moveInDirection(0, 0, 1)).toEqual([0, 1]);   // Southeast
@@ -1341,6 +1386,9 @@ describe('Unified Molecular Rendering Tests', () => {
       expect(moveInDirection(0, 0, 5)).toEqual([1, -1]);  // Northeast
     });
 
+    // INPUT: Non-origin position (5,3) and all 6 directions
+    // EXPECTED: Neighbors offset correctly from that position
+    // WHY: Verifies movement works from any hex, not just origin
     test('moves from non-origin position', () => {
       expect(moveInDirection(5, 3, 0)).toEqual([6, 3]);   // East
       expect(moveInDirection(5, 3, 1)).toEqual([5, 4]);   // Southeast
@@ -1352,6 +1400,9 @@ describe('Unified Molecular Rendering Tests', () => {
   });
 
   describe('getNeighbors helper function', () => {
+    // INPUT: Origin hex (0,0)
+    // EXPECTED: Array of 6 neighbors with correct coords and directions
+    // WHY: Used for adjacency checks and pathfinding
     test('gets neighbors of origin', () => {
       const neighbors = getNeighbors(0, 0);
       expect(neighbors).toEqual([
@@ -1378,10 +1429,16 @@ describe('Unified Molecular Rendering Tests', () => {
   });
 
   describe('hexManhattanDistance helper function', () => {
+    // INPUT: Same hex (0,0) to (0,0)
+    // EXPECTED: Returns 0
+    // WHY: Distance to self is always zero
     test('calculates distance for same hex', () => {
       expect(hexManhattanDistance({ q: 0, r: 0 }, { q: 0, r: 0 })).toBe(0);
     });
 
+    // INPUT: Adjacent hexes (0,0) to (1,0)
+    // EXPECTED: Returns 1
+    // WHY: Adjacent hexes are 1 step apart
     test('calculates distance for adjacent hexes', () => {
       expect(hexManhattanDistance({ q: 0, r: 0 }, { q: 1, r: 0 })).toBe(1);
     });
