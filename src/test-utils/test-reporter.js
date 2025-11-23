@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Custom Jest Reporter - Generates HTML test report with molecule visualizations
  *

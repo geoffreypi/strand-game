@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Test Visualizer - Renders molecules in tests using ASCII renderer
  *

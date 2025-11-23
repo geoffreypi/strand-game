@@ -1,18 +1,8 @@
 /**
- * Global Teardown - Writes visualization file before reporter runs
+ * Global Teardown - Runs after all tests complete
  */
-import fs from 'fs';
-import path from 'path';
 
 export default async function globalTeardown() {
-  // This runs after all tests complete but before the process exits
-  // We need to ensure the visualization file is available for the reporter
-
-  const vizFile = path.join(process.cwd(), '.test-visualizations.json');
-
-  // Check if we have any visualization data from the test environment
-  // The data should have been written by individual test files
-  if (fs.existsSync(vizFile)) {
-    console.log(`Visualization file exists with ${fs.statSync(vizFile).size} bytes`);
-  }
+  // Visualization file is written by test-visualizer.js and read by test-reporter.js
+  // No cleanup needed here - reporter handles it
 }
