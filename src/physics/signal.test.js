@@ -26,14 +26,6 @@ function createResidue(index, type, q, r) {
 }
 
 /**
- * Create a simple linear chain of residues
- * Each residue is placed at (i, 0) for easy testing
- */
-function createLinearChain(types) {
-  return types.map((type, i) => createResidue(i, type, i, 0));
-}
-
-/**
  * Create bound pairs map from array of [residueIndex, nucleotide]
  */
 function createBoundPairs(pairs) {

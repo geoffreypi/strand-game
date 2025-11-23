@@ -17,7 +17,6 @@
 
 import { getNeighbors } from '../core/hex-layout.js';
 import {
-  AMINO_ACID_TYPES,
   getSignalingType,
   canSignal,
   getBindingTarget

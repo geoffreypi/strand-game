@@ -13,7 +13,6 @@
 
 import { Molecule } from './molecule.js';
 import {
-  sequenceToHexGrid,
   moveInDirection,
   applyBend,
   getNeighbors
