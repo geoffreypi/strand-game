@@ -4,29 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Protein-DNA Binding Demo</title>
-    <script type="module">
-        // Import the actual ASCII renderer and binding modules
-        import ASCIIRenderer from '../renderers/ascii-renderer.js';
-        import {
-            extractBindingPattern,
-            extractDNASequence,
-            findSequenceMatches,
-            findBindingConfigurations,
-            BindingManager
-        } from './binding.js';
-
-        // Make them available globally for the inline script
-        window.ASCIIRenderer = ASCIIRenderer;
-        window.extractBindingPattern = extractBindingPattern;
-        window.extractDNASequence = extractDNASequence;
-        window.findSequenceMatches = findSequenceMatches;
-        window.findBindingConfigurations = findBindingConfigurations;
-        window.BindingManager = BindingManager;
-
-        // Signal that modules are loaded
-        window.modulesLoaded = true;
-        window.dispatchEvent(new Event('modulesLoaded'));
-    </script>
     <style>
         body {
             font-family: 'Courier New', monospace;
@@ -35,13 +12,9 @@
             padding: 20px;
             line-height: 1.6;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
         h1 { color: #00ff88; }
         h2 { color: #00ccff; margin-top: 30px; }
-        h3 { color: #ffcc00; }
         .panel {
             background: #0f0f1e;
             padding: 20px;
@@ -56,10 +29,7 @@
             font-size: 14px;
             overflow-x: auto;
         }
-        pre {
-            margin: 0;
-            white-space: pre;
-        }
+        pre { margin: 0; white-space: pre; }
         input, select {
             font-family: 'Courier New', monospace;
             background: #0f0f1e;
@@ -87,67 +57,30 @@
         .binding-site { color: #ff88ff; }
         .bound { color: #00ff88; font-weight: bold; }
         .unbound { color: #888888; }
-        .match { background: #003300; }
-        .no-match { background: #330000; }
-        .status {
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
         .status.success { background: #003300; border: 1px solid #00ff88; }
-        .status.error { background: #330000; border: 1px solid #ff4444; }
         .status.info { background: #002244; border: 1px solid #00ccff; }
-        .flex-row {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .flex-col {
-            flex: 1;
-            min-width: 300px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 10px 0;
-        }
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #333;
-        }
+        .flex-row { display: flex; gap: 20px; flex-wrap: wrap; }
+        .flex-col { flex: 1; min-width: 300px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; }
         th { color: #00ccff; }
-        .legend {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin: 10px 0;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-        }
         .canvas-container {
             background: #000;
             border-radius: 8px;
             margin: 10px 0;
             padding: 10px;
         }
-        canvas {
-            display: block;
-            margin: 0 auto;
-        }
+        canvas { display: block; margin: 0 auto; }
+        .legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Protein-DNA Binding Demo</h1>
+        <p style="color: #888;">Version 1.0.3 - Built: 2025-11-22 23:52 UTC</p>
         <p>Visualize how proteins with binding amino acids (BTA, BTC, BTG, BTT) bind to complementary DNA sequences.</p>
 
         <div class="panel">
@@ -158,7 +91,7 @@
                 <div class="legend-item"><span class="binding-site">BTA</span> binds to <strong>A</strong>denine</div>
                 <div class="legend-item"><span class="binding-site">BTC</span> binds to <strong>C</strong>ytosine</div>
                 <div class="legend-item"><span class="binding-site">BTG</span> binds to <strong>G</strong>uanine</div>
-                <div class="legend-item"><span class="binding-site">BTT</span> binds to <strong>T</strong>hymine (or Uracil)</div>
+                <div class="legend-item"><span class="binding-site">BTT</span> binds to <strong>T</strong>hymine</div>
             </div>
         </div>
 
@@ -166,7 +99,7 @@
             <div class="flex-col">
                 <div class="panel">
                     <h2>DNA Molecule</h2>
-                    <label>Top Strand (5'→3'):</label>
+                    <label>Top Strand (5'->3'):</label>
                     <input type="text" id="dna-sequence" value="AAACGTACGTTTTT" />
                     <button onclick="updateDNA()">Set DNA</button>
                     <div class="molecule-display" id="dna-display"></div>
@@ -213,9 +146,7 @@
                 <div class="panel">
                     <h2>Registered Proteins</h2>
                     <table id="protein-table">
-                        <thead>
-                            <tr><th>ID</th><th>Sequence</th><th>Binding Pattern</th><th>Status</th><th>Action</th></tr>
-                        </thead>
+                        <thead><tr><th>ID</th><th>Sequence</th><th>Binding Pattern</th><th>Status</th><th>Action</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -224,9 +155,7 @@
                 <div class="panel">
                     <h2>Bound Complexes</h2>
                     <table id="complex-table">
-                        <thead>
-                            <tr><th>Protein</th><th>DNA Position</th><th>Strand</th><th>Strength</th></tr>
-                        </thead>
+                        <thead><tr><th>Protein</th><th>DNA Position</th><th>Strand</th><th>Strength</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -235,459 +164,91 @@
 
         <div class="panel">
             <h2>ASCII Visualization</h2>
-            <div class="molecule-display" id="ascii-display">
+            <div class="molecule-display">
                 <pre id="ascii-output">Click "Check for Bindings" to see ASCII visualization</pre>
             </div>
         </div>
     </div>
 
     <script>
-        // Wait for modules to load before initializing
-        function waitForModules() {
-            return new Promise(resolve => {
-                if (window.modulesLoaded) {
-                    resolve();
-                } else {
-                    window.addEventListener('modulesLoaded', resolve);
+        // ============================================================================
+        // ASCII Renderer (inline copy)
+        // ============================================================================
+        class ASCIIRenderer {
+            static renderDNA(topSequence, bottomSequence) {
+                if (topSequence.length !== bottomSequence.length) {
+                    return 'ERROR: Top and bottom sequences must be same length';
                 }
-            });
+                const length = topSequence.length;
+                let topLine = "3'-" + topSequence.split('').map(b => '<' + b + '>').join('-') + "-5'";
+                let middleLine = '   ';
+                for (let i = 0; i < length; i++) {
+                    const topBase = topSequence[i];
+                    const bottomBase = bottomSequence[i];
+                    let bond = (topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')
+                        ? '|||' : '| |';
+                    middleLine += bond;
+                    if (i < length - 1) middleLine += ' ';
+                }
+                let bottomLine = "5'-" + bottomSequence.split('').map(b => '<' + b + '>').join('-') + "-3'";
+                return topLine + '\n' + middleLine + '\n' + bottomLine;
+            }
+
+            static renderProtein(aminoAcidSequence) {
+                return 'N-' + aminoAcidSequence + '-C';
+            }
         }
 
-        // Use imported modules (will be available after module script runs)
+        // ============================================================================
+        // Binding helpers
+        // ============================================================================
+        const AMINO_ACID_BINDING = { BTA: 'A', BTC: 'C', BTG: 'G', BTT: 'T' };
+
         function getBindingTarget(code) {
-            const AMINO_ACID_BINDING = { BTA: 'A', BTC: 'C', BTG: 'G', BTT: 'T' };
             return AMINO_ACID_BINDING[code] || null;
         }
 
-        // ============================================================================
-        // Demo State
-        // ============================================================================
-
-        let manager = new BindingManager();
-        let currentDNA = null;
-        let dnaId = null;
-        let simulationInterval = null;
-
-        // ============================================================================
-        // Helper Functions
-        // ============================================================================
-
-        function createProtein(sequenceStr) {
-            const types = sequenceStr.split('-');
-            const aminoAcids = types.map((type, i) => ({
-                type: type.toUpperCase(),
-                position: { q: i, r: 0 }
-            }));
-            return { aminoAcids, sequenceStr };
-        }
-
-        function createDNA(topSequence) {
-            const complement = { 'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C' };
-            const topHexes = topSequence.split('').map((type, i) => ({
-                type,
-                q: i,
-                r: 0
-            }));
-            const bottomHexes = topSequence.split('').map((type, i) => ({
-                type: complement[type] || 'N',
-                q: i,
-                r: 1
-            }));
-            return { topHexes, bottomHexes, topSequence };
-        }
-
-        function getBindingPatternStr(protein) {
-            const pattern = extractBindingPattern(protein);
-            if (pattern.length === 0) return '-';
-            return pattern.map(p => p.bindsTo).join('');
-        }
-
-        // ============================================================================
-        // UI Update Functions
-        // ============================================================================
-
-        function updateDNA() {
-            const seq = document.getElementById('dna-sequence').value.toUpperCase();
-            currentDNA = createDNA(seq);
-
-            // Re-create manager with new DNA
-            const oldProteins = [...manager.proteins.values()];
-            manager = new BindingManager();
-            dnaId = manager.addDNA(currentDNA);
-
-            // Re-add proteins
-            for (const entry of oldProteins) {
-                manager.addProtein(entry.protein);
-            }
-
-            updateDNADisplay();
-            updateProteinTable();
-            updateComplexTable();
-            render();
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-
-        function updateDNADisplay() {
-            const display = document.getElementById('dna-display');
-            if (!currentDNA) {
-                display.innerHTML = '<pre>No DNA set</pre>';
-                return;
-            }
-
-            const top = currentDNA.topSequence;
-            const bottom = currentDNA.bottomHexes.map(h => h.type).join('');
-
-            // Use the actual ASCII renderer if available
-            if (window.ASCIIRenderer) {
-                const dnaAscii = window.ASCIIRenderer.renderDNA(top, bottom);
-                display.innerHTML = `<pre>${escapeHtml(dnaAscii)}</pre>`;
-            } else {
-                // Fallback if module not loaded yet
-                let topLine = "5'-" + top.split('').map(b => '<' + b + '>').join('-') + "-3'";
-                let middleLine = "   ";
-                for (let i = 0; i < top.length; i++) {
-                    const topBase = top[i];
-                    const bottomBase = bottom[i];
-                    let bond = (topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')
-                        ? "|||" : "| |";
-                    middleLine += bond;
-                    if (i < top.length - 1) middleLine += " ";
-                }
-                let bottomLine = "3'-" + bottom.split('').map(b => '<' + b + '>').join('-') + "-5'";
-                display.innerHTML = `<pre>${escapeHtml(topLine + '\n' + middleLine + '\n' + bottomLine)}</pre>`;
-            }
-        }
-
-        function addProtein() {
-            const seq = document.getElementById('protein-sequence').value;
-            const protein = createProtein(seq);
-
-            if (!currentDNA) {
-                updateDNA();
-            }
-
-            manager.addProtein(protein);
-            updateProteinTable();
-            render();
-        }
-
-        function removeProtein(id) {
-            manager.removeProtein(id);
-            updateProteinTable();
-            updateComplexTable();
-            render();
-        }
-
-        function updateProteinTable() {
-            const tbody = document.querySelector('#protein-table tbody');
-            tbody.innerHTML = '';
-
-            for (const [id, entry] of manager.proteins) {
-                const pattern = getBindingPatternStr(entry.protein);
-                const isBound = manager.isProteinBound(id);
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${id}</td>
-                    <td style="font-size: 11px;">${entry.protein.sequenceStr}</td>
-                    <td class="binding-site">${pattern}</td>
-                    <td class="${isBound ? 'bound' : 'unbound'}">${isBound ? 'BOUND' : 'Unbound'}</td>
-                    <td><button onclick="removeProtein(${id})" class="danger" style="padding: 4px 8px; font-size: 11px;">Remove</button></td>
-                `;
-                tbody.appendChild(tr);
-            }
-        }
-
-        function updateComplexTable() {
-            const tbody = document.querySelector('#complex-table tbody');
-            tbody.innerHTML = '';
-
-            for (const complex of manager.getBoundComplexes()) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>#${complex.proteinId}</td>
-                    <td>${complex.configuration.dnaStartIndex}</td>
-                    <td>${complex.configuration.strand}</td>
-                    <td>${complex.configuration.bindingStrength}</td>
-                `;
-                tbody.appendChild(tr);
-            }
-        }
-
-        function checkBindings() {
-            const newBindings = manager.checkForBindings();
-            const status = document.getElementById('binding-status');
-
-            if (newBindings.length > 0) {
-                status.className = 'status success';
-                status.textContent = `Created ${newBindings.length} new binding(s)!`;
-            } else {
-                status.className = 'status info';
-                status.textContent = 'No new bindings found. Proteins may already be bound or no matching sequences.';
-            }
-
-            updateProteinTable();
-            updateComplexTable();
-            updateASCIIDisplay();
-            render();
-        }
-
-        function updateASCIIDisplay() {
-            const output = document.getElementById('ascii-output');
-            if (!currentDNA) {
-                output.textContent = 'No DNA set';
-                return;
-            }
-
-            let lines = [];
-            const complexes = manager.getBoundComplexes();
-            const topComplexes = complexes.filter(c => c.configuration.strand === 'top');
-            const bottomComplexes = complexes.filter(c => c.configuration.strand === 'bottom');
-
-            const top = currentDNA.topSequence;
-            const bottom = currentDNA.bottomHexes.map(h => h.type).join('');
-
-            // Show proteins bound to top strand above DNA
-            for (const complex of topComplexes) {
-                const pattern = extractBindingPattern(complex.protein);
-                const startPos = complex.configuration.dnaStartIndex;
-                // Each nucleotide takes 4 chars: <X>- so position = 3 + startPos*4
-                const indent = "   " + "    ".repeat(startPos);
-
-                // Use ASCII renderer for protein if available
-                if (window.ASCIIRenderer) {
-                    const proteinAscii = window.ASCIIRenderer.renderProtein(complex.protein.sequenceStr);
-                    lines.push(indent + proteinAscii + ` (Protein #${complex.proteinId})`);
-                } else {
-                    const proteinStr = pattern.map(p => `[${p.aminoAcid}]`).join('-');
-                    lines.push(indent + proteinStr + ` (Protein #${complex.proteinId})`);
-                }
-                lines.push(indent + pattern.map(() => ' | ').join(' '));
-            }
-
-            // DNA - use ASCII renderer if available
-            if (window.ASCIIRenderer) {
-                const dnaAscii = window.ASCIIRenderer.renderDNA(top, bottom);
-                lines.push(dnaAscii);
-            } else {
-                lines.push("5'-" + top.split('').map(b => '<' + b + '>').join('-') + "-3'");
-                let middleLine = "   ";
-                for (let i = 0; i < top.length; i++) {
-                    const topBase = top[i];
-                    const bottomBase = bottom[i];
-                    let bond = (topBase === 'G' && bottomBase === 'C') || (topBase === 'C' && bottomBase === 'G')
-                        ? "|||" : "| |";
-                    middleLine += bond;
-                    if (i < top.length - 1) middleLine += " ";
-                }
-                lines.push(middleLine);
-                lines.push("3'-" + bottom.split('').map(b => '<' + b + '>').join('-') + "-5'");
-            }
-
-            // Show proteins bound to bottom strand below DNA
-            for (const complex of bottomComplexes) {
-                const pattern = extractBindingPattern(complex.protein);
-                const startPos = complex.configuration.dnaStartIndex;
-                const indent = "   " + "    ".repeat(startPos);
-                lines.push(indent + pattern.map(() => ' | ').join(' '));
-
-                if (window.ASCIIRenderer) {
-                    const proteinAscii = window.ASCIIRenderer.renderProtein(complex.protein.sequenceStr);
-                    lines.push(indent + proteinAscii + ` (Protein #${complex.proteinId})`);
-                } else {
-                    const proteinStr = pattern.map(p => `[${p.aminoAcid}]`).join('-');
-                    lines.push(indent + proteinStr + ` (Protein #${complex.proteinId})`);
+        function extractBindingPattern(protein) {
+            const pattern = [];
+            for (let i = 0; i < protein.aminoAcids.length; i++) {
+                const aa = protein.aminoAcids[i];
+                const bindsTo = getBindingTarget(aa.type);
+                if (bindsTo) {
+                    pattern.push({ position: i, aminoAcid: aa.type, bindsTo: bindsTo, hexPosition: aa.position });
                 }
             }
-
-            output.textContent = lines.join('\n');
+            return pattern;
         }
 
-        // ============================================================================
-        // Canvas Rendering
-        // ============================================================================
-
-        const NUCLEOTIDE_COLORS = {
-            'A': '#ff6666',
-            'C': '#66ff66',
-            'G': '#6666ff',
-            'T': '#ffff66',
-            'U': '#ffaa66'
-        };
-
-        const AA_COLORS = {
-            BTA: '#ff88ff', BTC: '#ff88ff', BTG: '#ff88ff', BTT: '#ff88ff',
-            STR: '#888888', L60: '#888888', R60: '#888888',
-            L12: '#888888', R12: '#888888', FLX: '#888888',
-            POS: '#ff4444', NEG: '#4444ff',
-            PHO: '#aa8844', PHI: '#44aaaa',
-            CRL: '#ff8800', RPF: '#88ff88', PBF: '#8888ff'
-        };
-
-        function render() {
-            const canvas = document.getElementById('bindingCanvas');
-            const ctx = canvas.getContext('2d');
-
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            if (!currentDNA) return;
-
-            const hexSize = 25;
-            const startX = 50;
-            const dnaY = canvas.height / 2;
-
-            // Draw DNA backbone
-            ctx.strokeStyle = '#444';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(startX, dnaY - 20);
-            ctx.lineTo(startX + currentDNA.topSequence.length * hexSize * 1.5, dnaY - 20);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(startX, dnaY + 20);
-            ctx.lineTo(startX + currentDNA.topSequence.length * hexSize * 1.5, dnaY + 20);
-            ctx.stroke();
-
-            // Draw DNA nucleotides
-            for (let i = 0; i < currentDNA.topHexes.length; i++) {
-                const x = startX + i * hexSize * 1.5;
-
-                // Top strand
-                const topNuc = currentDNA.topHexes[i].type;
-                ctx.fillStyle = NUCLEOTIDE_COLORS[topNuc] || '#ffffff';
-                ctx.beginPath();
-                ctx.arc(x, dnaY - 20, hexSize / 2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#000';
-                ctx.font = '12px monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(topNuc, x, dnaY - 20);
-
-                // Bottom strand
-                const bottomNuc = currentDNA.bottomHexes[i].type;
-                ctx.fillStyle = NUCLEOTIDE_COLORS[bottomNuc] || '#ffffff';
-                ctx.beginPath();
-                ctx.arc(x, dnaY + 20, hexSize / 2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#000';
-                ctx.fillText(bottomNuc, x, dnaY + 20);
-
-                // Hydrogen bonds
-                ctx.strokeStyle = '#666';
-                ctx.lineWidth = 1;
-                const bonds = (topNuc === 'G' && bottomNuc === 'C') || (topNuc === 'C' && bottomNuc === 'G') ? 3 : 2;
-                for (let b = 0; b < bonds; b++) {
-                    const bx = x - 3 + b * 3;
-                    ctx.beginPath();
-                    ctx.moveTo(bx, dnaY - 8);
-                    ctx.lineTo(bx, dnaY + 8);
-                    ctx.stroke();
-                }
-            }
-
-            // Draw bound proteins
-            const complexes = manager.getBoundComplexes();
-            for (const complex of complexes) {
-                const startPos = complex.configuration.dnaStartIndex;
-                const strand = complex.configuration.strand;
-                const pattern = extractBindingPattern(complex.protein);
-                const proteinY = strand === 'top' ? dnaY - 70 : dnaY + 70;
-
-                // Draw protein amino acids
-                for (let i = 0; i < complex.protein.aminoAcids.length; i++) {
-                    const aa = complex.protein.aminoAcids[i];
-                    const isBinding = pattern.some(p => p.position === i);
-
-                    // Position binding AAs over their target nucleotides
-                    let x;
-                    if (isBinding) {
-                        const bindingIdx = pattern.findIndex(p => p.position === i);
-                        x = startX + (startPos + bindingIdx) * hexSize * 1.5;
-                    } else {
-                        // Non-binding AAs: find relative position
-                        const firstBindingPos = pattern.length > 0 ? pattern[0].position : 0;
-                        const offset = i - firstBindingPos;
-                        x = startX + startPos * hexSize * 1.5 + offset * hexSize * 1.2;
+        function findBindingConfigurations(protein, dna) {
+            const bindingPattern = extractBindingPattern(protein);
+            if (bindingPattern.length === 0) return [];
+            const configurations = [];
+            for (const strand of ['top', 'bottom']) {
+                const hexes = strand === 'top' ? dna.topHexes : dna.bottomHexes;
+                const dnaSequence = hexes.map((hex, i) => ({ position: i, nucleotide: hex.type }));
+                for (let dnaStart = 0; dnaStart <= dnaSequence.length - bindingPattern.length; dnaStart++) {
+                    let isMatch = true;
+                    for (let i = 0; i < bindingPattern.length; i++) {
+                        const nucleotide = dnaSequence[dnaStart + i].nucleotide;
+                        const bindTarget = bindingPattern[i].bindsTo;
+                        if (bindTarget !== nucleotide && !(bindTarget === 'T' && nucleotide === 'U')) {
+                            isMatch = false;
+                            break;
+                        }
                     }
-
-                    ctx.fillStyle = AA_COLORS[aa.type] || '#888888';
-                    ctx.beginPath();
-                    ctx.arc(x, proteinY, hexSize / 2 - 2, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Draw binding lines
-                    if (isBinding) {
-                        ctx.strokeStyle = '#00ff88';
-                        ctx.lineWidth = 2;
-                        ctx.setLineDash([4, 2]);
-                        ctx.beginPath();
-                        ctx.moveTo(x, proteinY + (strand === 'top' ? hexSize / 2 : -hexSize / 2));
-                        ctx.lineTo(x, dnaY + (strand === 'top' ? -30 : 30));
-                        ctx.stroke();
-                        ctx.setLineDash([]);
+                    if (isMatch) {
+                        configurations.push({ strand, dnaStartIndex: dnaStart, bindingStrength: bindingPattern.length });
                     }
-
-                    // Label
-                    ctx.fillStyle = '#000';
-                    ctx.font = '9px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(aa.type, x, proteinY);
-                }
-
-                // Protein ID label
-                ctx.fillStyle = '#fff';
-                ctx.font = '11px monospace';
-                const labelX = startX + startPos * hexSize * 1.5 - 30;
-                ctx.fillText(`#${complex.proteinId}`, labelX, proteinY);
-            }
-
-            // Draw unbound proteins floating
-            let unboundY = 350;
-            for (const [id, entry] of manager.proteins) {
-                if (!manager.isProteinBound(id)) {
-                    ctx.fillStyle = '#333';
-                    ctx.fillRect(30, unboundY - 15, 200, 30);
-                    ctx.fillStyle = '#888';
-                    ctx.font = '11px monospace';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(`#${id}: ${entry.protein.sequenceStr.substring(0, 20)}...`, 35, unboundY);
-                    unboundY += 35;
                 }
             }
+            return configurations;
         }
 
         // ============================================================================
-        // Simulation
+        // Binding Manager
         // ============================================================================
-
-        function runSimulation() {
-            if (simulationInterval) return;
-            simulationInterval = setInterval(() => {
-                checkBindings();
-            }, 1000);
-            document.getElementById('binding-status').textContent = 'Simulation running (1 Hz)...';
-            document.getElementById('binding-status').className = 'status info';
-        }
-
-        function stopSimulation() {
-            if (simulationInterval) {
-                clearInterval(simulationInterval);
-                simulationInterval = null;
-                document.getElementById('binding-status').textContent = 'Simulation stopped.';
-            }
-        }
-
-        // ============================================================================
-        // Initialize
-        // ============================================================================
-
-        // Initialize with fallback BindingManager, will use imported one when available
-        class FallbackBindingManager {
+        class BindingManager {
             constructor() {
                 this.proteins = new Map();
                 this.dnas = new Map();
@@ -743,78 +304,355 @@
             }
         }
 
-        // Local extractBindingPattern for fallback
-        function extractBindingPattern(protein) {
-            const pattern = [];
-            for (let i = 0; i < protein.aminoAcids.length; i++) {
-                const aa = protein.aminoAcids[i];
-                const bindsTo = getBindingTarget(aa.type);
-                if (bindsTo) {
-                    pattern.push({ position: i, aminoAcid: aa.type, bindsTo: bindsTo, hexPosition: aa.position });
-                }
-            }
-            return pattern;
+        // ============================================================================
+        // Demo State
+        // ============================================================================
+        let manager = new BindingManager();
+        let currentDNA = null;
+        let dnaId = null;
+        let simulationInterval = null;
+
+        // ============================================================================
+        // Helper Functions
+        // ============================================================================
+        function createProtein(sequenceStr) {
+            const types = sequenceStr.split('-');
+            const aminoAcids = types.map((type, i) => ({
+                type: type.toUpperCase(),
+                position: { q: i, r: 0 }
+            }));
+            return { aminoAcids, sequenceStr };
         }
 
-        // Local findBindingConfigurations for fallback
-        function findBindingConfigurations(protein, dna) {
-            const bindingPattern = extractBindingPattern(protein);
-            if (bindingPattern.length === 0) return [];
-            const configurations = [];
-            for (const strand of ['top', 'bottom']) {
-                const hexes = strand === 'top' ? dna.topHexes : dna.bottomHexes;
-                const dnaSequence = hexes.map((hex, i) => ({ position: i, nucleotide: hex.type, hexPosition: { q: hex.q, r: hex.r } }));
-                for (let dnaStart = 0; dnaStart <= dnaSequence.length - bindingPattern.length; dnaStart++) {
-                    let isMatch = true;
-                    for (let i = 0; i < bindingPattern.length; i++) {
-                        const nucleotide = dnaSequence[dnaStart + i].nucleotide;
-                        const bindTarget = bindingPattern[i].bindsTo;
-                        if (bindTarget !== nucleotide && !(bindTarget === 'T' && nucleotide === 'U')) {
-                            isMatch = false;
-                            break;
-                        }
-                    }
-                    if (isMatch) {
-                        configurations.push({ strand, dnaStartIndex: dnaStart, bindingStrength: bindingPattern.length });
-                    }
-                }
-            }
-            return configurations;
+        function createDNA(topSequence) {
+            const complement = { 'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C' };
+            const topHexes = topSequence.split('').map((type, i) => ({ type, q: i, r: 0 }));
+            const bottomHexes = topSequence.split('').map((type, i) => ({
+                type: complement[type] || 'N', q: i, r: 1
+            }));
+            return { topHexes, bottomHexes, topSequence };
         }
 
-        function initializeDemo() {
-            // Use imported BindingManager if available, otherwise use fallback
-            const BM = window.BindingManager || FallbackBindingManager;
-            manager = new BM();
+        function getBindingPatternStr(protein) {
+            const pattern = extractBindingPattern(protein);
+            if (pattern.length === 0) return '-';
+            return pattern.map(p => p.bindsTo).join('');
+        }
 
-            updateDNA();
+        // ============================================================================
+        // UI Update Functions
+        // ============================================================================
+        function updateDNA() {
+            const seq = document.getElementById('dna-sequence').value.toUpperCase();
+            currentDNA = createDNA(seq);
 
-            // Add some example proteins
-            const examples = [
-                'STR-BTA-BTC-BTG-BTT-STR',
-                'BTA-BTA-BTA',
-                'L60-BTG-BTC-R60'
-            ];
-            for (const seq of examples) {
-                const protein = createProtein(seq);
-                manager.addProtein(protein);
+            const oldProteins = [...manager.proteins.values()];
+            manager = new BindingManager();
+            dnaId = manager.addDNA(currentDNA);
+
+            for (const entry of oldProteins) {
+                manager.addProtein(entry.protein);
             }
+
+            updateDNADisplay();
+            updateProteinTable();
+            updateComplexTable();
+            render();
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function updateDNADisplay() {
+            const display = document.getElementById('dna-display');
+            if (!currentDNA) {
+                display.innerHTML = '<pre>No DNA set</pre>';
+                return;
+            }
+            const top = currentDNA.topSequence;
+            const bottom = currentDNA.bottomHexes.map(h => h.type).join('');
+            const dnaAscii = ASCIIRenderer.renderDNA(top, bottom);
+            display.innerHTML = '<pre>' + escapeHtml(dnaAscii) + '</pre>';
+        }
+
+        function addProtein() {
+            const seq = document.getElementById('protein-sequence').value;
+            const protein = createProtein(seq);
+            if (!currentDNA) updateDNA();
+            manager.addProtein(protein);
             updateProteinTable();
             render();
-
-            console.log('Demo initialized. Using imported modules:', !!window.ASCIIRenderer);
         }
 
-        // Wait for modules to load, then initialize
-        waitForModules().then(initializeDemo).catch(() => {
-            console.log('Modules failed to load, using fallback');
-            initializeDemo();
-        });
+        function removeProtein(id) {
+            manager.removeProtein(id);
+            updateProteinTable();
+            updateComplexTable();
+            render();
+        }
 
-        // Also try to initialize immediately if modules already loaded
-        setTimeout(() => {
-            if (!manager) initializeDemo();
-        }, 100);
+        function updateProteinTable() {
+            const tbody = document.querySelector('#protein-table tbody');
+            tbody.innerHTML = '';
+            for (const [id, entry] of manager.proteins) {
+                const pattern = getBindingPatternStr(entry.protein);
+                const isBound = manager.isProteinBound(id);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${id}</td>
+                    <td style="font-size: 11px;">${entry.protein.sequenceStr}</td>
+                    <td class="binding-site">${pattern}</td>
+                    <td class="${isBound ? 'bound' : 'unbound'}">${isBound ? 'BOUND' : 'Unbound'}</td>
+                    <td><button onclick="removeProtein(${id})" class="danger" style="padding: 4px 8px; font-size: 11px;">Remove</button></td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        function updateComplexTable() {
+            const tbody = document.querySelector('#complex-table tbody');
+            tbody.innerHTML = '';
+            for (const complex of manager.getBoundComplexes()) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${complex.proteinId}</td>
+                    <td>${complex.configuration.dnaStartIndex}</td>
+                    <td>${complex.configuration.strand}</td>
+                    <td>${complex.configuration.bindingStrength}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        function checkBindings() {
+            const newBindings = manager.checkForBindings();
+            const status = document.getElementById('binding-status');
+            if (newBindings.length > 0) {
+                status.className = 'status success';
+                status.textContent = 'Created ' + newBindings.length + ' new binding(s)!';
+            } else {
+                status.className = 'status info';
+                status.textContent = 'No new bindings found. Proteins may already be bound or no matching sequences.';
+            }
+            updateProteinTable();
+            updateComplexTable();
+            updateASCIIDisplay();
+            render();
+        }
+
+        function updateASCIIDisplay() {
+            const output = document.getElementById('ascii-output');
+            if (!currentDNA) {
+                output.textContent = 'No DNA set';
+                return;
+            }
+
+            let lines = [];
+            const complexes = manager.getBoundComplexes();
+            const topComplexes = complexes.filter(c => c.configuration.strand === 'top');
+            const bottomComplexes = complexes.filter(c => c.configuration.strand === 'bottom');
+            const top = currentDNA.topSequence;
+            const bottom = currentDNA.bottomHexes.map(h => h.type).join('');
+
+            // Proteins bound to top strand
+            for (const complex of topComplexes) {
+                const startPos = complex.configuration.dnaStartIndex;
+                const indent = '   ' + '    '.repeat(startPos);
+                const proteinAscii = ASCIIRenderer.renderProtein(complex.protein.sequenceStr);
+                lines.push(indent + proteinAscii + ' (Protein #' + complex.proteinId + ')');
+                const pattern = extractBindingPattern(complex.protein);
+                lines.push(indent + pattern.map(() => ' | ').join(' '));
+            }
+
+            // DNA
+            lines.push(ASCIIRenderer.renderDNA(top, bottom));
+
+            // Proteins bound to bottom strand
+            for (const complex of bottomComplexes) {
+                const startPos = complex.configuration.dnaStartIndex;
+                const indent = '   ' + '    '.repeat(startPos);
+                const pattern = extractBindingPattern(complex.protein);
+                lines.push(indent + pattern.map(() => ' | ').join(' '));
+                const proteinAscii = ASCIIRenderer.renderProtein(complex.protein.sequenceStr);
+                lines.push(indent + proteinAscii + ' (Protein #' + complex.proteinId + ')');
+            }
+
+            output.textContent = lines.join('\n');
+        }
+
+        // ============================================================================
+        // Canvas Rendering
+        // ============================================================================
+        const NUCLEOTIDE_COLORS = { 'A': '#ff6666', 'C': '#66ff66', 'G': '#6666ff', 'T': '#ffff66', 'U': '#ffaa66' };
+        const AA_COLORS = {
+            BTA: '#ff88ff', BTC: '#ff88ff', BTG: '#ff88ff', BTT: '#ff88ff',
+            STR: '#888888', L60: '#888888', R60: '#888888', L12: '#888888', R12: '#888888', FLX: '#888888',
+            POS: '#ff4444', NEG: '#4444ff', PHO: '#aa8844', PHI: '#44aaaa',
+            CRL: '#ff8800', RPF: '#88ff88', PBF: '#8888ff'
+        };
+
+        function render() {
+            const canvas = document.getElementById('bindingCanvas');
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!currentDNA) return;
+
+            const hexSize = 25;
+            const startX = 50;
+            const dnaY = canvas.height / 2;
+
+            // DNA backbone
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(startX, dnaY - 20);
+            ctx.lineTo(startX + currentDNA.topSequence.length * hexSize * 1.5, dnaY - 20);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(startX, dnaY + 20);
+            ctx.lineTo(startX + currentDNA.topSequence.length * hexSize * 1.5, dnaY + 20);
+            ctx.stroke();
+
+            // DNA nucleotides
+            for (let i = 0; i < currentDNA.topHexes.length; i++) {
+                const x = startX + i * hexSize * 1.5;
+
+                // Top strand
+                const topNuc = currentDNA.topHexes[i].type;
+                ctx.fillStyle = NUCLEOTIDE_COLORS[topNuc] || '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x, dnaY - 20, hexSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.font = '12px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(topNuc, x, dnaY - 20);
+
+                // Bottom strand
+                const bottomNuc = currentDNA.bottomHexes[i].type;
+                ctx.fillStyle = NUCLEOTIDE_COLORS[bottomNuc] || '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x, dnaY + 20, hexSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.fillText(bottomNuc, x, dnaY + 20);
+
+                // Hydrogen bonds
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                const bonds = (topNuc === 'G' && bottomNuc === 'C') || (topNuc === 'C' && bottomNuc === 'G') ? 3 : 2;
+                for (let b = 0; b < bonds; b++) {
+                    const bx = x - 3 + b * 3;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, dnaY - 8);
+                    ctx.lineTo(bx, dnaY + 8);
+                    ctx.stroke();
+                }
+            }
+
+            // Bound proteins
+            const complexes = manager.getBoundComplexes();
+            for (const complex of complexes) {
+                const startPos = complex.configuration.dnaStartIndex;
+                const strand = complex.configuration.strand;
+                const pattern = extractBindingPattern(complex.protein);
+                const proteinY = strand === 'top' ? dnaY - 70 : dnaY + 70;
+
+                for (let i = 0; i < complex.protein.aminoAcids.length; i++) {
+                    const aa = complex.protein.aminoAcids[i];
+                    const isBinding = pattern.some(p => p.position === i);
+
+                    let x;
+                    if (isBinding) {
+                        const bindingIdx = pattern.findIndex(p => p.position === i);
+                        x = startX + (startPos + bindingIdx) * hexSize * 1.5;
+                    } else {
+                        const firstBindingPos = pattern.length > 0 ? pattern[0].position : 0;
+                        const offset = i - firstBindingPos;
+                        x = startX + startPos * hexSize * 1.5 + offset * hexSize * 1.2;
+                    }
+
+                    ctx.fillStyle = AA_COLORS[aa.type] || '#888888';
+                    ctx.beginPath();
+                    ctx.arc(x, proteinY, hexSize / 2 - 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (isBinding) {
+                        ctx.strokeStyle = '#00ff88';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([4, 2]);
+                        ctx.beginPath();
+                        ctx.moveTo(x, proteinY + (strand === 'top' ? hexSize / 2 : -hexSize / 2));
+                        ctx.lineTo(x, dnaY + (strand === 'top' ? -30 : 30));
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    ctx.fillStyle = '#000';
+                    ctx.font = '9px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(aa.type, x, proteinY);
+                }
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '11px monospace';
+                const labelX = startX + startPos * hexSize * 1.5 - 30;
+                ctx.fillText('#' + complex.proteinId, labelX, proteinY);
+            }
+
+            // Unbound proteins
+            let unboundY = 350;
+            for (const [id, entry] of manager.proteins) {
+                if (!manager.isProteinBound(id)) {
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(30, unboundY - 15, 200, 30);
+                    ctx.fillStyle = '#888';
+                    ctx.font = '11px monospace';
+                    ctx.textAlign = 'left';
+                    ctx.fillText('#' + id + ': ' + entry.protein.sequenceStr.substring(0, 20) + '...', 35, unboundY);
+                    unboundY += 35;
+                }
+            }
+        }
+
+        // ============================================================================
+        // Simulation
+        // ============================================================================
+        function runSimulation() {
+            if (simulationInterval) return;
+            simulationInterval = setInterval(() => { checkBindings(); }, 1000);
+            document.getElementById('binding-status').textContent = 'Simulation running (1 Hz)...';
+            document.getElementById('binding-status').className = 'status info';
+        }
+
+        function stopSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                document.getElementById('binding-status').textContent = 'Simulation stopped.';
+            }
+        }
+
+        // ============================================================================
+        // Initialize
+        // ============================================================================
+        updateDNA();
+
+        const examples = ['STR-BTA-BTC-BTG-BTT-STR', 'BTA-BTA-BTA', 'L60-BTG-BTC-R60'];
+        for (const seq of examples) {
+            const protein = createProtein(seq);
+            manager.addProtein(protein);
+        }
+        updateProteinTable();
+        render();
+
+        console.log('Demo initialized successfully!');
     </script>
 </body>
 </html>
