@@ -412,8 +412,8 @@ export class Complex {
       // Roll for attraction
       if (randomFn() >= attractChance) continue;
 
-      // Find an unoccupied adjacent hex
-      const emptyHex = this._findEmptyAdjacentHex(entity.q, entity.r);
+      // Find an unoccupied adjacent hex (randomly selected)
+      const emptyHex = this._findEmptyAdjacentHex(entity.q, entity.r, randomFn);
       if (!emptyHex) continue;
 
       // Spawn ATP molecule at that position
@@ -432,21 +432,27 @@ export class Complex {
 
   /**
    * Find an unoccupied hex adjacent to a position
+   * Randomly selects from all available empty neighbors
    * @private
    * @param {number} q
    * @param {number} r
+   * @param {Function} randomFn - Random function (default Math.random)
    * @returns {Object|null} {q, r} of empty hex, or null if all occupied
    */
-  _findEmptyAdjacentHex(q, r) {
+  _findEmptyAdjacentHex(q, r, randomFn = Math.random) {
     const neighbors = getNeighbors(q, r);
 
-    for (const neighbor of neighbors) {
-      if (!this.isOccupied(neighbor.q, neighbor.r)) {
-        return { q: neighbor.q, r: neighbor.r };
-      }
+    // Collect all empty neighbors
+    const emptyNeighbors = neighbors.filter(n => !this.isOccupied(n.q, n.r));
+
+    if (emptyNeighbors.length === 0) {
+      return null;
     }
 
-    return null;
+    // Randomly select one
+    const index = Math.floor(randomFn() * emptyNeighbors.length);
+    const selected = emptyNeighbors[index];
+    return { q: selected.q, r: selected.r };
   }
 
   /**
