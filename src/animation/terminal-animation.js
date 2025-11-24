@@ -6,6 +6,13 @@
  * - Progress bars
  * - Spinners
  * - Live-updating ASCII protein renders using the actual renderer
+ *
+ * IMPORTANT DESIGN PRINCIPLE:
+ * All animations and renders should be driven by actual simulation code,
+ * not hardcoded frames or diagrams. This ensures:
+ * 1. Animations accurately reflect the physics/game logic
+ * 2. Changes to core systems automatically update visualizations
+ * 3. Demos serve as integration tests for the rendering + physics systems
  */
 
 import ASCIIRenderer from '../renderers/ascii-renderer.js';
@@ -851,13 +858,19 @@ export async function runDemo() {
   // spinner.stop('Simulation ready!');
   // console.log('');
 
+  // Signal propagation animation - the star of the show
+  console.log(`${ANSI.BOLD}1. Signal Propagation Animation:${ANSI.RESET}`);
+  console.log(`${ANSI.DIM}   Watch DNA binding trigger a signal cascade${ANSI.RESET}\n`);
+  await runSignalAnimation();
+  console.log('\n');
+
   // Complex rendering demos - show off new features
-  console.log(`${ANSI.BOLD}1. Molecular Complex Rendering:${ANSI.RESET}\n`);
+  console.log(`${ANSI.BOLD}2. Molecular Complex Rendering:${ANSI.RESET}\n`);
   await runComplexDemos();
   console.log('');
 
   // Thermodynamic protein folding simulations
-  console.log(`${ANSI.BOLD}2. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
+  console.log(`${ANSI.BOLD}3. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
   console.log(`${ANSI.DIM}   Each protein folds according to transition probabilities from the physics engine${ANSI.RESET}\n`);
 
   for (let i = 0; i < DEMO_SEQUENCES.length; i++) {
@@ -952,6 +965,190 @@ async function runComplexDemos() {
     console.log('');
     await sleep(1500);
   }
+}
+
+/**
+ * Animated demo showing binding and signal propagation
+ * Actually runs the physics simulation!
+ * Shows: DNA binding -> signal propagation -> ATR activation -> ATP attraction
+ */
+async function runSignalAnimation() {
+  const renderer = new MultiLineRenderer();
+  const frameDelay = 1200;
+
+  // Build complex step by step, running actual physics at each step
+  const frames = [];
+
+  // === Frame 1: Protein alone ===
+  {
+    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
+    const signalResult = complex.computeSignals();
+    frames.push({
+      title: 'Step 1: Unbound protein',
+      description: 'Protein with BTA (binds A), two SIG conductors, and ATR (attracts ATP)',
+      complex,
+      signalResult
+    });
+  }
+
+  // === Frame 2: DNA added but not adjacent (approaching) ===
+  {
+    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
+    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 2 } }); // Not adjacent yet
+    const signalResult = complex.computeSignals();
+    frames.push({
+      title: 'Step 2: DNA molecule nearby',
+      description: 'An adenine nucleotide approaches (not yet adjacent to BTA)',
+      complex,
+      signalResult
+    });
+  }
+
+  // === Frame 3: DNA binds (adjacent to BTA) ===
+  {
+    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
+    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } }); // Adjacent to BTA at (0,0)
+    const signalResult = complex.computeSignals();
+    frames.push({
+      title: 'Step 3: DNA binds to BTA',
+      description: `BTA binds adenine → signal propagates! (${signalResult.iterations} iterations)`,
+      complex,
+      signalResult
+    });
+  }
+
+  // === Frame 4: ATR attracts ATP ===
+  {
+    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
+    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
+    complex.computeSignals(); // Activate signals first
+    // Force ATR to attract (100% chance for demo)
+    const atrResult = complex.processATRs({ attractChance: 1.0 });
+    const signalResult = complex.computeSignals(); // Recompute after ATP added
+    frames.push({
+      title: 'Step 4: ATR attracts ATP',
+      description: `ATR activated → attracted ${atrResult.count} ATP molecule(s)`,
+      complex,
+      signalResult
+    });
+  }
+
+  // === Frame 5: Final state summary ===
+  {
+    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
+    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
+    complex.computeSignals();
+    complex.processATRs({ attractChance: 1.0 });
+    const signalResult = complex.computeSignals();
+    const energy = complex.calculateEnergy();
+    frames.push({
+      title: 'Step 5: Complete!',
+      description: `Energy: ${energy.toFixed(2)} eV | All signals propagated`,
+      complex,
+      signalResult,
+      showSummary: true
+    });
+  }
+
+  process.stdout.write(ANSI.HIDE_CURSOR);
+
+  try {
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      const lines = renderSignalFrame(frame, i, frames.length);
+
+      renderer.setLines(lines);
+      renderer.render();
+
+      await sleep(frameDelay);
+    }
+  } finally {
+    process.stdout.write(ANSI.SHOW_CURSOR);
+  }
+}
+
+/**
+ * Render a signal animation frame with actual physics data
+ */
+function renderSignalFrame(frame, frameIndex, totalFrames) {
+  const { complex, signalResult, title, description } = frame;
+  const lines = [];
+
+  // Header
+  lines.push(`${ANSI.FG_CYAN}${ANSI.BOLD}${title}${ANSI.RESET}`);
+  lines.push(`${ANSI.DIM}${description}${ANSI.RESET}`);
+  lines.push('');
+
+  // Render the complex
+  const asciiRender = ASCIIRenderer.renderComplex(complex);
+  lines.push(...asciiRender.split('\n'));
+  lines.push('');
+
+  // Build signal state display from actual physics data
+  const entities = complex.getEntities();
+  const proteinEntities = entities.filter(e => e.moleculeType === 'protein');
+
+  if (proteinEntities.length > 0 && signalResult?.state) {
+    const signalBoxes = [];
+    const labels = [];
+    const indicators = [];
+
+    for (const entity of proteinEntities) {
+      const state = signalResult.state.get(entity.index);
+      const isOn = state?.on ?? false;
+      const isSource = state?.source ?? false;
+
+      // Signal box
+      if (isOn) {
+        signalBoxes.push(`[${ANSI.FG_GREEN}****${ANSI.RESET}]`);
+      } else {
+        signalBoxes.push('[    ]');
+      }
+
+      // Label (padded to 6 chars for alignment)
+      labels.push(entity.type.padEnd(6));
+
+      // Indicator
+      if (isSource) {
+        indicators.push('  ^   ');
+      } else if (isOn) {
+        indicators.push('  ^   ');
+      } else {
+        indicators.push('      ');
+      }
+    }
+
+    lines.push('   Signals: ' + signalBoxes.join(' '));
+    lines.push('            ' + labels.join(' '));
+
+    // Show source/conducting labels
+    const hasAnySignal = proteinEntities.some(e => signalResult.state.get(e.index)?.on);
+    if (hasAnySignal) {
+      const sourceLabels = proteinEntities.map(e => {
+        const state = signalResult.state.get(e.index);
+        if (state?.source) return 'source';
+        if (state?.on) return '  on  ';
+        return '      ';
+      });
+      lines.push('            ' + sourceLabels.join(' '));
+    }
+  }
+
+  // Summary info for final frame
+  if (frame.showSummary) {
+    lines.push('');
+    lines.push(`${ANSI.FG_GREEN}All residues signaled. ATP available for energy-consuming actions.${ANSI.RESET}`);
+  }
+
+  lines.push('');
+  lines.push(`${ANSI.DIM}[Frame ${frameIndex + 1}/${totalFrames}] (actual physics simulation)${ANSI.RESET}`);
+
+  // Pad to consistent height
+  while (lines.length < 20) {
+    lines.push('');
+  }
+
+  return lines;
 }
 
 // Run demo if executed directly
