@@ -732,9 +732,11 @@ class ASCIIRenderer {
     // Adjust col based on element widths (assume center of 3-char element)
     const adjustedCol = midCol + 1; // Center of typical 3-char element
 
-    // Write bond character if position is empty or has space
+    // Write bond character if position is empty, space, or a connector character
+    // This allows '+' bonds to overwrite '-' from suffixes like '-C'
     const key = `${midRow},${adjustedCol}`;
-    if (!canvas.has(key) || canvas.get(key) === ' ') {
+    const existing = canvas.get(key);
+    if (!existing || existing === ' ' || existing === '-') {
       this.writeText(canvas, midRow, adjustedCol, bondChar);
     }
   }
