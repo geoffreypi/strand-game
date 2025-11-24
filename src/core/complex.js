@@ -378,6 +378,119 @@ export class Complex {
   }
 
   // ===========================================================================
+  // ACTUATOR PROCESSING
+  // ===========================================================================
+
+  /**
+   * Process all ATR (Attractor) residues
+   * When signaled, ATR has a chance to spawn ATP in an adjacent empty hex.
+   *
+   * TODO: Currently ATP supply is infinite. In future, implement finite ATP pools.
+   *
+   * @param {Object} options
+   * @param {number} options.attractChance - Probability of attraction per tick (default 0.75)
+   * @param {Function} options.randomFn - Random function for testing (default Math.random)
+   * @returns {Object} { attracted: [{moleculeId, q, r}, ...], count: number }
+   */
+  processATRs(options = {}) {
+    this._rebuildPositions();
+
+    const {
+      attractChance = 0.75,
+      randomFn = Math.random
+    } = options;
+
+    const attracted = [];
+
+    for (const entity of this._entities) {
+      // Only process ATR residues
+      if (entity.type !== 'ATR') continue;
+
+      // Must be signaled (activated)
+      if (!this.isSignaled(entity.index)) continue;
+
+      // Roll for attraction
+      if (randomFn() >= attractChance) continue;
+
+      // Find an unoccupied adjacent hex
+      const emptyHex = this._findEmptyAdjacentHex(entity.q, entity.r);
+      if (!emptyHex) continue;
+
+      // Spawn ATP molecule at that position
+      const atpMol = Molecule.createATP();
+      this.addMolecule(atpMol, { offset: emptyHex });
+
+      attracted.push({
+        moleculeId: atpMol.id,
+        q: emptyHex.q,
+        r: emptyHex.r
+      });
+    }
+
+    return { attracted, count: attracted.length };
+  }
+
+  /**
+   * Find an unoccupied hex adjacent to a position
+   * @private
+   * @param {number} q
+   * @param {number} r
+   * @returns {Object|null} {q, r} of empty hex, or null if all occupied
+   */
+  _findEmptyAdjacentHex(q, r) {
+    const neighbors = getNeighbors(q, r);
+
+    for (const neighbor of neighbors) {
+      if (!this.isOccupied(neighbor.q, neighbor.r)) {
+        return { q: neighbor.q, r: neighbor.r };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if a position contains ATP
+   * @param {number} q
+   * @param {number} r
+   * @returns {boolean}
+   */
+  hasATPAt(q, r) {
+    const entity = this.getAt(q, r);
+    return entity?.type === 'ATP';
+  }
+
+  /**
+   * Get all ATP positions in this complex
+   * @returns {Set} Set of "q,r" strings
+   */
+  getATPPositions() {
+    this._rebuildPositions();
+    const positions = new Set();
+
+    for (const entity of this._entities) {
+      if (entity.type === 'ATP') {
+        positions.add(`${entity.q},${entity.r}`);
+      }
+    }
+
+    return positions;
+  }
+
+  /**
+   * Remove ATP molecule at a specific position (when consumed)
+   * @param {number} q
+   * @param {number} r
+   * @returns {boolean} True if ATP was removed
+   */
+  consumeATPAt(q, r) {
+    const entity = this.getAt(q, r);
+    if (!entity || entity.type !== 'ATP') return false;
+
+    return this.removeMolecule(entity.moleculeId);
+  }
+
+  // ===========================================================================
   // ENERGY CALCULATIONS
   // ===========================================================================
 

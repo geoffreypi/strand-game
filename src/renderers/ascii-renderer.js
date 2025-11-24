@@ -2,7 +2,7 @@
 // Usage: Quick debugging and structure verification
 // This version uses the hex layout algorithm for unlimited bend support
 
-import { sequenceToHexGrid, dnaToHexGrid } from '../core/hex-layout.js';
+import { sequenceToHexGrid, dnaToHexGrid, getNeighbors } from '../core/hex-layout.js';
 
 class ASCIIRenderer {
 
@@ -561,6 +561,181 @@ class ASCIIRenderer {
         return 'ERROR: Sequence overlap detected';
       }
       throw error;
+    }
+  }
+
+  // ===========================================================================
+  // COMPLEX RENDERING
+  // ===========================================================================
+
+  /**
+   * Render a Complex with all its molecules and inter-molecular bindings
+   * @param {Complex} complex - The Complex to render
+   * @param {Object} options - Rendering options
+   * @param {boolean} options.showBindings - Whether to show binding indicators (default true)
+   * @param {Object} options.prefixes - Custom prefixes per molecule type {protein: 'N-', dna: '5\'-', ...}
+   * @param {Object} options.suffixes - Custom suffixes per molecule type {protein: '-C', dna: '-3\'', ...}
+   * @returns {string} ASCII rendering
+   */
+  static renderComplex(complex, options = {}) {
+    const {
+      showBindings = true,
+      prefixes = {
+        protein: 'N-',
+        dna: '5\'-',
+        rna: '5\'-',
+        atp: '',
+        other: ''
+      },
+      suffixes = {
+        protein: '-C',
+        dna: '-3\'',
+        rna: '-3\'',
+        atp: '',
+        other: ''
+      }
+    } = options;
+
+    const canvas = new Map();
+    const entityPositions = new Map(); // Track {q,r} -> entity for binding lookup
+
+    // Get all entities from complex
+    const entities = complex.getEntities();
+
+    // Group entities by molecule
+    const moleculeEntities = new Map();
+    for (const entity of entities) {
+      if (!moleculeEntities.has(entity.moleculeId)) {
+        moleculeEntities.set(entity.moleculeId, []);
+      }
+      moleculeEntities.get(entity.moleculeId).push(entity);
+
+      // Track position for binding lookup
+      entityPositions.set(`${entity.q},${entity.r}`, entity);
+    }
+
+    // Render each molecule
+    for (const entry of complex.entries) {
+      const mol = entry.molecule;
+      const molEntities = moleculeEntities.get(mol.id) || [];
+
+      if (molEntities.length === 0) continue;
+
+      // Sort by index to ensure correct order
+      molEntities.sort((a, b) => a.index - b.index);
+
+      // Get prefix/suffix for this molecule type
+      const prefix = prefixes[mol.type] || '';
+      const suffix = suffixes[mol.type] || '';
+
+      // Format entities for rendering
+      const formattedEntities = molEntities.map(e => ({
+        q: e.q,
+        r: e.r,
+        type: this.formatEntityType(e.type, mol.type)
+      }));
+
+      // Render this molecule's strand
+      this.renderStrandOnCanvas(canvas, formattedEntities, prefix, suffix, { q: 0, r: 0 });
+    }
+
+    // Render bindings if requested
+    if (showBindings) {
+      const bindings = complex.findBindings();
+      this.renderBindingsOnCanvas(canvas, bindings, entities, entityPositions);
+    }
+
+    return this.canvasToString(canvas);
+  }
+
+  /**
+   * Format entity type for display
+   * @param {string} type - Raw type code
+   * @param {string} moleculeType - Type of molecule ('protein', 'dna', 'rna', 'atp')
+   * @returns {string} Formatted type for display
+   */
+  static formatEntityType(type, moleculeType) {
+    // DNA/RNA nucleotides get wrapped in <>
+    if (moleculeType === 'dna' || moleculeType === 'rna') {
+      return `<${type}>`;
+    }
+    // ATP stays as 3-char code (consistent with other residues)
+    // Proteins and ATP stay as-is
+    return type;
+  }
+
+  /**
+   * Render binding indicators between bound pairs
+   * Uses '+' character at the midpoint between:
+   * - BTx residues and nucleotides
+   * - ATR residues and adjacent ATP
+   * @param {Map} canvas - The rendering canvas
+   * @param {Map} bindings - Map of residueIndex -> nucleotide type
+   * @param {Array} entities - All entities in the complex
+   * @param {Map} entityPositions - Map of "q,r" -> entity
+   */
+  static renderBindingsOnCanvas(canvas, bindings, entities, entityPositions) {
+    // For each BTx binding, find the BTx residue and its bound nucleotide neighbor
+    for (const [residueIndex, nucleotideType] of bindings) {
+      // Find the BTx entity
+      const btxEntity = entities.find(e => e.index === residueIndex && e.type.startsWith('BT'));
+      if (!btxEntity) continue;
+
+      // Find the adjacent nucleotide
+      const neighbors = getNeighbors(btxEntity.q, btxEntity.r);
+      for (const neighbor of neighbors) {
+        const neighborEntity = entityPositions.get(`${neighbor.q},${neighbor.r}`);
+        if (!neighborEntity) continue;
+
+        // Check if this neighbor is the bound nucleotide
+        if (neighborEntity.type === nucleotideType ||
+            (nucleotideType === 'U' && neighborEntity.type === 'T')) {
+          // Draw '+' between them
+          this.renderBondBetweenHexes(canvas, btxEntity, neighborEntity, '+');
+          break;
+        }
+      }
+    }
+
+    // Also render ATR-ATP bonds
+    const atrEntities = entities.filter(e => e.type === 'ATR');
+    for (const atrEntity of atrEntities) {
+      const neighbors = getNeighbors(atrEntity.q, atrEntity.r);
+      for (const neighbor of neighbors) {
+        const neighborEntity = entityPositions.get(`${neighbor.q},${neighbor.r}`);
+        if (!neighborEntity) continue;
+
+        // Check if this neighbor is ATP
+        if (neighborEntity.type === 'ATP') {
+          // Draw '+' between ATR and ATP
+          this.renderBondBetweenHexes(canvas, atrEntity, neighborEntity, '+');
+        }
+      }
+    }
+  }
+
+  /**
+   * Render a bond character between two adjacent hexes
+   * @param {Map} canvas - The rendering canvas
+   * @param {Object} hex1 - First hex {q, r}
+   * @param {Object} hex2 - Second hex {q, r}
+   * @param {string} bondChar - Character to use for the bond
+   */
+  static renderBondBetweenHexes(canvas, hex1, hex2, bondChar) {
+    const pos1 = this.hexToCanvasCoords(hex1.q, hex1.r);
+    const pos2 = this.hexToCanvasCoords(hex2.q, hex2.r);
+
+    // Calculate midpoint
+    const midRow = Math.round((pos1.row + pos2.row) / 2);
+    const midCol = Math.round((pos1.col + pos2.col) / 2);
+
+    // Adjust col based on element widths (assume center of 3-char element)
+    const adjustedCol = midCol + 1; // Center of typical 3-char element
+
+    // Write bond character if position is empty or has space
+    const key = `${midRow},${adjustedCol}`;
+    if (!canvas.has(key) || canvas.get(key) === ' ') {
+      this.writeText(canvas, midRow, adjustedCol, bondChar);
     }
   }
 

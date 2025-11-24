@@ -187,6 +187,15 @@ export class Molecule {
       : sequence.split('');
     return new Molecule(seq, { ...options, type: 'rna' });
   }
+
+  /**
+   * Create an ATP molecule (single element, can't chain)
+   * @param {Object} options
+   * @returns {Molecule}
+   */
+  static createATP(options = {}) {
+    return new Molecule(['ATP'], { ...options, type: 'atp' });
+  }
 }
 
 export default Molecule;

@@ -525,4 +525,148 @@ describe('Complex', () => {
       expect(complex.size).toBe(4);
     });
   });
+
+  describe('ATP and ATR', () => {
+    // INPUT: Create ATP molecule
+    // EXPECTED: Single-element molecule with type 'atp'
+    // WHY: ATP is a small molecule, not a chain
+    test('Molecule.createATP creates single-element ATP', () => {
+      const atp = Molecule.createATP();
+
+      expect(atp.sequence).toEqual(['ATP']);
+      expect(atp.length).toBe(1);
+      expect(atp.type).toBe('atp');
+    });
+
+    // INPUT: ATR signaled with successful roll
+    // EXPECTED: ATP spawned in adjacent hex
+    // WHY: ATR attracts ATP when activated
+    test('processATRs spawns ATP when ATR is signaled', () => {
+      const complex = new Complex();
+      const protein = Molecule.createProtein('BTA-SIG-ATR');
+      const dna = Molecule.createDNA('A');
+
+      // BTA at (0,0), SIG at (1,0), ATR at (2,0)
+      // DNA A at (0,1) - adjacent to BTA
+      complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
+      complex.addMolecule(dna, { offset: { q: 0, r: 1 } });
+
+      // Compute signals - BTA bound, signal propagates to ATR
+      complex.computeSignals();
+      expect(complex.isSignaled(2)).toBe(true); // ATR should be signaled
+
+      // Process ATRs with guaranteed success (randomFn returns 0)
+      const result = complex.processATRs({ randomFn: () => 0 });
+
+      expect(result.count).toBe(1);
+      expect(result.attracted.length).toBe(1);
+      // ATP should be adjacent to ATR at (2,0)
+      const atpPos = result.attracted[0];
+      expect(complex.hasATPAt(atpPos.q, atpPos.r)).toBe(true);
+    });
+
+    // INPUT: ATR signaled but roll fails
+    // EXPECTED: No ATP spawned
+    // WHY: 75% chance means sometimes it fails
+    test('processATRs does nothing on failed roll', () => {
+      const complex = new Complex();
+      const protein = Molecule.createProtein('BTA-SIG-ATR');
+      const dna = Molecule.createDNA('A');
+
+      complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
+      complex.addMolecule(dna, { offset: { q: 0, r: 1 } });
+
+      complex.computeSignals();
+
+      // Roll fails (0.8 >= 0.75)
+      const result = complex.processATRs({ randomFn: () => 0.8 });
+
+      expect(result.count).toBe(0);
+    });
+
+    // INPUT: ATR not signaled
+    // EXPECTED: No ATP spawned
+    // WHY: ATR must be activated to attract
+    test('processATRs does nothing when ATR not signaled', () => {
+      const complex = Complex.fromProtein('STR-SIG-ATR');
+
+      // No binding, no signal
+      complex.computeSignals();
+      expect(complex.isSignaled(2)).toBe(false);
+
+      const result = complex.processATRs({ randomFn: () => 0 });
+
+      expect(result.count).toBe(0);
+    });
+
+    // INPUT: ATR with all adjacent hexes occupied
+    // EXPECTED: No ATP spawned
+    // WHY: Need empty hex to place ATP
+    test('processATRs does nothing when all hexes occupied', () => {
+      const complex = new Complex();
+      // Create a protein that surrounds ATR position
+      // ATR at center, surrounded by other residues
+      const protein = Molecule.createProtein('BTA-SIG-ATR');
+      const dna = Molecule.createDNA('A');
+
+      complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
+      complex.addMolecule(dna, { offset: { q: 0, r: 1 } });
+
+      // Add more molecules to occupy all hexes around ATR at (2,0)
+      // Neighbors of (2,0): (3,0), (2,1), (1,1), (1,0), (2,-1), (3,-1)
+      // (1,0) is SIG, so we need to fill the other 5
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 3, r: 0 } });
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 2, r: 1 } });
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 1, r: 1 } });
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 2, r: -1 } });
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 3, r: -1 } });
+
+      complex.computeSignals();
+
+      const result = complex.processATRs({ randomFn: () => 0 });
+
+      expect(result.count).toBe(0);
+    });
+
+    // INPUT: ATP at position
+    // EXPECTED: getATPPositions includes it
+    // WHY: Need to track ATP for signal propagation
+    test('getATPPositions returns all ATP locations', () => {
+      const complex = Complex.fromProtein('STR-SIG');
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 5, r: 5 } });
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 6, r: 6 } });
+
+      const positions = complex.getATPPositions();
+
+      expect(positions.size).toBe(2);
+      expect(positions.has('5,5')).toBe(true);
+      expect(positions.has('6,6')).toBe(true);
+    });
+
+    // INPUT: Consume ATP at position
+    // EXPECTED: ATP removed
+    // WHY: ATP gets consumed when used for actions
+    test('consumeATPAt removes ATP molecule', () => {
+      const complex = Complex.fromProtein('STR-SIG');
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 5, r: 5 } });
+
+      expect(complex.hasATPAt(5, 5)).toBe(true);
+
+      const removed = complex.consumeATPAt(5, 5);
+
+      expect(removed).toBe(true);
+      expect(complex.hasATPAt(5, 5)).toBe(false);
+    });
+
+    // INPUT: Consume ATP at empty position
+    // EXPECTED: Returns false
+    // WHY: Can't consume what isn't there
+    test('consumeATPAt returns false when no ATP', () => {
+      const complex = Complex.fromProtein('STR-SIG');
+
+      const removed = complex.consumeATPAt(5, 5);
+
+      expect(removed).toBe(false);
+    });
+  });
 });

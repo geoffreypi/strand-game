@@ -1490,4 +1490,138 @@ describe('Unified Molecular Rendering Tests', () => {
     });
   });
 
+  // ===========================================================================
+  // COMPLEX RENDERING
+  // ===========================================================================
+
+  describe('Complex rendering', () => {
+    // Need to import Complex and Molecule for these tests
+    let Complex, Molecule;
+
+    beforeAll(async () => {
+      const complexModule = await import('./core/complex.js');
+      const moleculeModule = await import('./core/molecule.js');
+      Complex = complexModule.Complex;
+      Molecule = moleculeModule.Molecule;
+    });
+
+    // INPUT: Complex with single protein
+    // EXPECTED: Renders protein with N- and -C terminators
+    // WHY: Basic complex rendering
+    test('renders single protein complex', () => {
+      const complex = Complex.fromProtein('STR-SIG-BTA');
+      const result = ASCIIRenderer.renderComplex(complex);
+
+      expect(result).toContain('N-');
+      expect(result).toContain('-C');
+      expect(result).toContain('STR');
+      expect(result).toContain('SIG');
+      expect(result).toContain('BTA');
+    });
+
+    // INPUT: Complex with protein and DNA
+    // EXPECTED: Renders both molecules
+    // WHY: Complex can contain multiple molecules
+    test('renders complex with protein and DNA', () => {
+      const complex = new Complex();
+      complex.addMolecule(Molecule.createProtein('STR-BTA'), { offset: { q: 0, r: 0 } });
+      complex.addMolecule(Molecule.createDNA('AT'), { offset: { q: 0, r: 2 } });
+
+      const result = ASCIIRenderer.renderComplex(complex);
+
+      // Should have protein markers
+      expect(result).toContain('N-');
+      expect(result).toContain('-C');
+      // Should have DNA markers
+      expect(result).toContain('5\'-');
+      expect(result).toContain('-3\'');
+      // Should have DNA bases wrapped in <>
+      expect(result).toContain('<A>');
+      expect(result).toContain('<T>');
+    });
+
+    // INPUT: Complex with bound BTA adjacent to A nucleotide
+    // EXPECTED: Shows '+' between the bound pair
+    // WHY: Inter-molecular bindings shown with '+'
+    test('renders binding indicator between BTx and nucleotide', () => {
+      const complex = new Complex();
+      const protein = Molecule.createProtein('STR-BTA');
+      const dna = Molecule.createDNA('A');
+
+      // Position DNA so A is adjacent to BTA
+      // Protein: STR at (0,0), BTA at (1,0)
+      // DNA: A at (1,1) - Southeast neighbor of BTA
+      complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
+      complex.addMolecule(dna, { offset: { q: 1, r: 1 } });
+
+      const result = ASCIIRenderer.renderComplex(complex);
+
+      // Should contain binding indicator
+      expect(result).toContain('+');
+    });
+
+    // INPUT: Complex with BTA not adjacent to matching nucleotide
+    // EXPECTED: No '+' binding indicator
+    // WHY: No binding = no indicator
+    test('no binding indicator when not adjacent', () => {
+      const complex = new Complex();
+      const protein = Molecule.createProtein('STR-BTA');
+      const dna = Molecule.createDNA('A');
+
+      // Position DNA far away
+      complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
+      complex.addMolecule(dna, { offset: { q: 10, r: 10 } });
+
+      const result = ASCIIRenderer.renderComplex(complex);
+
+      // Should NOT contain binding indicator
+      expect(result).not.toContain('+');
+    });
+
+    // INPUT: Complex with ATP molecule
+    // EXPECTED: ATP rendered as 3-char code
+    // WHY: ATP follows same 3-char convention as other residues
+    test('renders ATP as 3-char code', () => {
+      const complex = Complex.fromProtein('STR-SIG');
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 5, r: 0 } });
+
+      const result = ASCIIRenderer.renderComplex(complex);
+
+      expect(result).toContain('ATP');
+      expect(result).not.toContain('[ATP]'); // No brackets
+    });
+
+    // INPUT: ATR with adjacent ATP
+    // EXPECTED: '+' shown between ATR and ATP
+    // WHY: ATR "summons" ATP, bond should be visible
+    test('renders ATR-ATP bond with +', () => {
+      const complex = Complex.fromProtein('STR-ATR');
+      // Place ATP adjacent to ATR (ATR is at position 1, so q=1, r=0)
+      // Adjacent hex SE is at (1, 1)
+      complex.addMolecule(Molecule.createATP(), { offset: { q: 1, r: 1 } });
+
+      const result = ASCIIRenderer.renderComplex(complex);
+
+      expect(result).toContain('ATR');
+      expect(result).toContain('ATP');
+      expect(result).toContain('+');
+    });
+
+    // INPUT: Complex with showBindings=false
+    // EXPECTED: No '+' even with valid binding
+    // WHY: Option to disable binding indicators
+    test('respects showBindings option', () => {
+      const complex = new Complex();
+      const protein = Molecule.createProtein('STR-BTA');
+      const dna = Molecule.createDNA('A');
+
+      complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
+      complex.addMolecule(dna, { offset: { q: 1, r: 1 } });
+
+      const result = ASCIIRenderer.renderComplex(complex, { showBindings: false });
+
+      expect(result).not.toContain('+');
+    });
+  });
+
 });
