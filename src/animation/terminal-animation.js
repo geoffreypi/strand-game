@@ -12,6 +12,8 @@ import ASCIIRenderer from '../renderers/ascii-renderer.js';
 import { calculateFoldEnergy } from '../data/amino-acids.js';
 import { sequenceToHexGrid } from '../core/hex-layout.js';
 import { buildTransitionMatrix, stepsToAngle, calculateFullEnergy } from '../physics/energy.js';
+import { Complex } from '../core/complex.js';
+import { Molecule } from '../core/molecule.js';
 
 /**
  * ANSI escape codes for terminal control
@@ -833,24 +835,29 @@ const DEMO_SEQUENCES = [
  * Demo function to showcase thermodynamic protein folding simulation
  */
 export async function runDemo() {
-  console.log(`${ANSI.BOLD}${ANSI.FG_CYAN}=== Protein Folding Simulation Demo ===${ANSI.RESET}\n`);
+  console.log(`${ANSI.BOLD}${ANSI.FG_CYAN}=== STRAND Demo ===${ANSI.RESET}\n`);
 
-  // Progress bar demo
-  console.log('1. Progress Bar:');
-  const progress = new ProgressBar({ label: 'Calculating energy' });
-  await progress.animate(1500);
-  console.log('');
+  // Progress bar demo (commented out - working)
+  // console.log('1. Progress Bar:');
+  // const progress = new ProgressBar({ label: 'Calculating energy' });
+  // await progress.animate(1500);
+  // console.log('');
 
-  // Spinner demo
-  console.log('2. Spinner:');
-  const spinner = new Spinner({ label: 'Initializing simulation...' });
-  spinner.start();
-  await sleep(2000);
-  spinner.stop('Simulation ready!');
+  // Spinner demo (commented out - working)
+  // console.log('2. Spinner:');
+  // const spinner = new Spinner({ label: 'Initializing simulation...' });
+  // spinner.start();
+  // await sleep(2000);
+  // spinner.stop('Simulation ready!');
+  // console.log('');
+
+  // Complex rendering demos - show off new features
+  console.log(`${ANSI.BOLD}1. Molecular Complex Rendering:${ANSI.RESET}\n`);
+  await runComplexDemos();
   console.log('');
 
   // Thermodynamic protein folding simulations
-  console.log(`${ANSI.BOLD}3. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
+  console.log(`${ANSI.BOLD}2. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
   console.log(`${ANSI.DIM}   Each protein folds according to transition probabilities from the physics engine${ANSI.RESET}\n`);
 
   for (let i = 0; i < DEMO_SEQUENCES.length; i++) {
@@ -872,6 +879,79 @@ export async function runDemo() {
   }
 
   console.log(`${ANSI.FG_GREEN}Demo complete!${ANSI.RESET}`);
+}
+
+/**
+ * Demo Complex rendering features
+ */
+async function runComplexDemos() {
+  const demos = [
+    {
+      name: 'Simple Protein',
+      description: 'A basic protein chain',
+      build: () => Complex.fromProtein('STR-SIG-FLX-NEG')
+    },
+    {
+      name: 'Protein + DNA Binding',
+      description: 'BTA residue binds to adenine nucleotide',
+      build: () => {
+        const complex = new Complex();
+        complex.addMolecule(Molecule.createProtein('STR-BTA-SIG'), { offset: { q: 0, r: 0 } });
+        complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 1, r: 1 } });
+        return complex;
+      }
+    },
+    {
+      name: 'ATR + ATP',
+      description: 'ATR residue has attracted an ATP molecule',
+      build: () => {
+        const complex = Complex.fromProtein('STR-ATR-SIG');
+        complex.addMolecule(Molecule.createATP(), { offset: { q: 1, r: 1 } });
+        return complex;
+      }
+    },
+    {
+      name: 'Signal Chain',
+      description: 'BTx source -> SIG conductor -> AND gate',
+      build: () => Complex.fromProtein('BTA-SIG-SIG-AND-ATR')
+    },
+    {
+      name: 'Multi-molecule Complex',
+      description: 'Protein bound to longer DNA strand',
+      build: () => {
+        const complex = new Complex();
+        complex.addMolecule(Molecule.createProtein('STR-BTA-BTG-SIG'), { offset: { q: 0, r: 0 } });
+        complex.addMolecule(Molecule.createDNA('AG'), { offset: { q: 1, r: 1 } });
+        return complex;
+      }
+    },
+    {
+      name: 'DNA Double Strand Preview',
+      description: 'DNA rendered with the DNA renderer',
+      build: () => {
+        // This one uses the DNA renderer directly, not Complex
+        return null;
+      },
+      customRender: () => ASCIIRenderer.renderDNA('ACGT', 'TGCA')
+    },
+  ];
+
+  for (const demo of demos) {
+    console.log(`${ANSI.FG_CYAN}--- ${demo.name} ---${ANSI.RESET}`);
+    console.log(`${ANSI.DIM}${demo.description}${ANSI.RESET}\n`);
+
+    let output;
+    if (demo.customRender) {
+      output = demo.customRender();
+    } else {
+      const complex = demo.build();
+      output = ASCIIRenderer.renderComplex(complex);
+    }
+
+    console.log(output);
+    console.log('');
+    await sleep(1500);
+  }
 }
 
 // Run demo if executed directly
