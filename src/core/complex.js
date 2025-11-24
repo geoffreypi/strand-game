@@ -323,7 +323,9 @@ export class Complex {
    * Compute signal states for all entities
    * @param {Object} options
    * @param {Set} options.atpPositions - Set of "q,r" strings where ATP exists
-   * @param {boolean} options.tickMode - Use tick-based (probabilistic) propagation
+   * @param {boolean} options.stepped - If true, compute one step only; if false, compute to steady-state
+   * @param {boolean} options.tickMode - DEPRECATED: Use 'stepped' instead
+   * @param {Function} options.randomFn - Random function for testing (default Math.random)
    * @returns {Object} Signal computation result
    */
   computeSignals(options = {}) {
@@ -331,7 +333,9 @@ export class Complex {
 
     const {
       atpPositions = new Set(),
-      tickMode = false
+      stepped = false,
+      tickMode = false, // Deprecated alias
+      randomFn = Math.random
     } = options;
 
     // Build bound pairs from current bindings
@@ -352,7 +356,8 @@ export class Complex {
       atpPositions,
       previousState: this._signalState,
       config: this._signalConfig,
-      tickMode
+      stepped: stepped || tickMode,
+      randomFn
     });
 
     this._signalState = result.state;

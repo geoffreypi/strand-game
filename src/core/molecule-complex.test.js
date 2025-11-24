@@ -389,7 +389,8 @@ describe('Complex', () => {
       complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
       complex.addMolecule(dna, { offset: { q: 0, r: 1 } });
 
-      complex.computeSignals();
+      // Use deterministic random (always succeeds) for test reproducibility
+      complex.computeSignals({ randomFn: () => 0 });
 
       expect(complex.isSignaled(0)).toBe(true); // BTA - source
       expect(complex.isSignaled(1)).toBe(true); // SIG - conducted
@@ -552,7 +553,8 @@ describe('Complex', () => {
       complex.addMolecule(dna, { offset: { q: 0, r: 1 } });
 
       // Compute signals - BTA bound, signal propagates to ATR
-      complex.computeSignals();
+      // Use deterministic random for test reproducibility
+      complex.computeSignals({ randomFn: () => 0 });
       expect(complex.isSignaled(2)).toBe(true); // ATR should be signaled
 
       // Process ATRs with guaranteed success (randomFn returns 0)

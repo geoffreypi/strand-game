@@ -864,13 +864,19 @@ export async function runDemo() {
   await runSignalAnimation();
   console.log('\n');
 
+  // AND gate animation - shows logic gate behavior
+  console.log(`${ANSI.BOLD}2. AND Gate Logic Demo:${ANSI.RESET}`);
+  console.log(`${ANSI.DIM}   AND gates require ALL inputs + ATP to activate${ANSI.RESET}\n`);
+  await runAndGateAnimation();
+  console.log('\n');
+
   // Complex rendering demos - show off new features
-  console.log(`${ANSI.BOLD}2. Molecular Complex Rendering:${ANSI.RESET}\n`);
+  console.log(`${ANSI.BOLD}3. Molecular Complex Rendering:${ANSI.RESET}\n`);
   await runComplexDemos();
   console.log('');
 
   // Thermodynamic protein folding simulations
-  console.log(`${ANSI.BOLD}3. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
+  console.log(`${ANSI.BOLD}4. Thermodynamic Folding Simulation (10 curated proteins):${ANSI.RESET}`);
   console.log(`${ANSI.DIM}   Each protein folds according to transition probabilities from the physics engine${ANSI.RESET}\n`);
 
   for (let i = 0; i < DEMO_SEQUENCES.length; i++) {
@@ -969,20 +975,12 @@ async function runComplexDemos() {
 
 /**
  * Animated demo showing binding and signal propagation
- * Actually runs the physics simulation with tick-based propagation!
- * Shows: DNA binding -> signal propagation (75% per tick) -> ATR activation -> ATP attraction
+ * Uses REAL stepped physics simulation!
+ * Shows: DNA binding -> signal propagation (75% per step) -> ATR activation -> ATP attraction
  */
 async function runSignalAnimation() {
   const renderer = new MultiLineRenderer();
   const frameDelay = 800;
-
-  // Use tick-based propagation (75% chance per tick) to show step-by-step
-  const tickConfig = {
-    SIG: 0.75,   // 75% chance per tick
-    AND: 0.75,
-    PSH: 0.75,
-    ATR: 0.75,
-  };
 
   const frames = [];
   let stepNum = 1;
@@ -990,7 +988,8 @@ async function runSignalAnimation() {
   // === Frame 1: Protein alone ===
   {
     const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
-    const signalResult = complex.computeSignals();
+    // Use deterministic random for reproducible demo
+    const signalResult = complex.computeSignals({ randomFn: () => 0 });
     frames.push({
       title: `Step ${stepNum++}: Unbound protein`,
       description: 'Protein with BTA (binds A), two SIG conductors, and ATR (attracts ATP)',
@@ -1001,11 +1000,12 @@ async function runSignalAnimation() {
 
   // === Frame 2: DNA binds - BTA becomes source ===
   const mainComplex = Complex.fromProtein('BTA-SIG-SIG-ATR');
-  mainComplex.setSignalConfig(tickConfig);
+  // Use default 75% probability config
   mainComplex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
 
-  // First compute - BTA becomes source (instant, since it's bound)
-  let signalResult = mainComplex.computeSignals();
+  // Initial compute - just gets sources active (BTA bound to DNA)
+  // Use stepped mode with deterministic random to show one step at a time
+  let signalResult = mainComplex.computeSignals({ stepped: true, randomFn: () => 0 });
   frames.push({
     title: `Step ${stepNum++}: DNA binds to BTA`,
     description: 'BTA recognizes adenine → becomes signal SOURCE',
@@ -1013,37 +1013,39 @@ async function runSignalAnimation() {
     signalResult: cloneSignalState(signalResult)
   });
 
-  // === Step through signal propagation one residue at a time ===
-  // For clear visualization, we manually propagate one residue per frame
-  // This simulates what happens over multiple ticks with 75% probability
+  // === Step through signal propagation using REAL physics ===
+  // Each step, call computeSignals({ stepped: true }) to advance one wave
+  const maxSteps = 10; // Safety limit
   const proteinEntities = mainComplex.getEntities().filter(e => e.moleculeType === 'protein');
 
-  // BTA (index 0) is already on as source
-  // Now propagate to each subsequent residue one at a time
-  for (let i = 1; i < proteinEntities.length; i++) {
-    const entity = proteinEntities[i];
+  for (let step = 0; step < maxSteps; step++) {
+    // Run one step of physics (use deterministic random so it always succeeds)
+    signalResult = mainComplex.computeSignals({ stepped: true, randomFn: () => 0 });
 
-    // Manually set this residue to ON (simulating successful 75% roll)
-    signalResult.state.set(entity.index, { on: true, source: false });
+    // Check what activated this step
+    const activatedTypes = (signalResult.activatedThisTick || [])
+      .map(idx => proteinEntities.find(e => e.index === idx)?.type)
+      .filter(Boolean);
 
-    // Store the internal signal state for next iteration
-    mainComplex._signalState = signalResult.state;
+    if (activatedTypes.length === 0) {
+      // No more changes, propagation complete
+      break;
+    }
 
     frames.push({
       title: `Step ${stepNum++}: Signal propagates`,
-      description: `${entity.type} activated (75% chance per tick)`,
+      description: `${activatedTypes.join(', ')} activated (75% chance per step)`,
       complex: cloneComplex(mainComplex),
       signalResult: cloneSignalState(signalResult)
     });
   }
 
   // === ATR attracts ATP until surrounded ===
-  // Physics: ATR keeps attracting (75% per tick) while signaled until no empty neighbors
+  // Uses REAL processATRs physics
   let atpCount = 0;
-  const maxAtpTicks = 10; // Safety limit
+  const maxAtpTicks = 10;
 
   for (let tick = 0; tick < maxAtpTicks; tick++) {
-    // Check if ATR has any empty neighbors left
     const atrEntity = mainComplex.getEntities().find(e => e.type === 'ATR');
     if (!atrEntity) break;
 
@@ -1051,18 +1053,17 @@ async function runSignalAnimation() {
     const emptyNeighbors = neighbors.filter(n => !mainComplex.isOccupied(n.q, n.r));
 
     if (emptyNeighbors.length === 0) {
-      // ATR is surrounded, stop
-      break;
+      break; // ATR is surrounded
     }
 
-    // Try to attract ATP (100% for demo, normally 75%)
+    // Use real processATRs physics (100% for demo clarity, normally 75%)
     const atrResult = mainComplex.processATRs({ attractChance: 1.0 });
 
     if (atrResult.count > 0) {
       atpCount++;
       frames.push({
         title: `Step ${stepNum++}: ATR attracts ATP (#${atpCount})`,
-        description: `ATP attracted to (${atrResult.attracted[0].q}, ${atrResult.attracted[0].r}) | ${emptyNeighbors.length - 1} spots remaining`,
+        description: `ATP at (${atrResult.attracted[0].q}, ${atrResult.attracted[0].r}) | ${emptyNeighbors.length - 1} spots left`,
         complex: cloneComplex(mainComplex),
         signalResult: cloneSignalState(signalResult)
       });
@@ -1193,6 +1194,185 @@ function renderSignalFrame(frame, frameIndex, totalFrames) {
 
   // Pad to consistent height
   while (lines.length < 20) {
+    lines.push('');
+  }
+
+  return lines;
+}
+
+/**
+ * Animated demo showing AND gate logic
+ * Demonstrates that AND needs ALL inputs ON + ATP to activate
+ */
+async function runAndGateAnimation() {
+  const renderer = new MultiLineRenderer();
+  const frameDelay = 1000;
+
+  const frames = [];
+  let stepNum = 1;
+
+  // Config for instant propagation (clearer demo)
+  const instantConfig = { SIG: 1.0, AND: 1.0, PSH: 1.0, ATR: 1.0 };
+
+  // === Frame 1: Protein alone with AND gate ===
+  {
+    const complex = Complex.fromProtein('BTA-SIG-AND-SIG-BTG');
+    complex.setSignalConfig(instantConfig);
+    const signalResult = complex.computeSignals();
+    frames.push({
+      title: `Step ${stepNum++}: AND Gate Circuit`,
+      description: 'BTA and BTG are signal sources, AND gate in the middle requires BOTH inputs',
+      complex: cloneComplex(complex),
+      signalResult: cloneSignalState(signalResult)
+    });
+  }
+
+  // === Frame 2: DNA-A binds to BTA (left side only) ===
+  const mainComplex = Complex.fromProtein('BTA-SIG-AND-SIG-BTG');
+  mainComplex.setSignalConfig(instantConfig);
+  mainComplex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
+  let signalResult = mainComplex.computeSignals();
+
+  frames.push({
+    title: `Step ${stepNum++}: Left input activated`,
+    description: 'DNA-A binds BTA → left SIG turns ON, but AND needs BOTH inputs',
+    complex: cloneComplex(mainComplex),
+    signalResult: cloneSignalState(signalResult)
+  });
+
+  // === Frame 3: DNA-G binds to BTG (both sides now ON) ===
+  mainComplex.addMolecule(Molecule.createDNA('G'), { offset: { q: 4, r: 1 } });
+  signalResult = mainComplex.computeSignals();
+
+  frames.push({
+    title: `Step ${stepNum++}: Both inputs activated`,
+    description: 'DNA-G binds BTG → right SIG turns ON, AND has both inputs but needs ATP!',
+    complex: cloneComplex(mainComplex),
+    signalResult: cloneSignalState(signalResult)
+  });
+
+  // === Frame 4: Add ATP adjacent to AND ===
+  mainComplex.addMolecule(Molecule.createATP(), { offset: { q: 2, r: 1 } });
+  const atpPositions = mainComplex.getATPPositions();
+  signalResult = mainComplex.computeSignals({ atpPositions });
+
+  frames.push({
+    title: `Step ${stepNum++}: ATP consumed - AND activates!`,
+    description: 'ATP provided → AND gate activates (consumes ATP), signal flows through',
+    complex: cloneComplex(mainComplex),
+    signalResult: cloneSignalState(signalResult),
+    showConsumed: signalResult.consumedAtp?.length > 0
+  });
+
+  // === Final summary frame ===
+  frames.push({
+    title: `Step ${stepNum}: AND Gate Complete`,
+    description: 'AND gate: ON when ALL signal-capable neighbors ON + ATP available',
+    complex: cloneComplex(mainComplex),
+    signalResult: cloneSignalState(signalResult),
+    showSummary: true
+  });
+
+  // Run the animation
+  process.stdout.write(ANSI.HIDE_CURSOR);
+
+  try {
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      const lines = renderAndGateFrame(frame, i, frames.length);
+
+      renderer.setLines(lines);
+      renderer.render();
+
+      await sleep(frameDelay);
+    }
+  } finally {
+    process.stdout.write(ANSI.SHOW_CURSOR);
+  }
+}
+
+/**
+ * Render an AND gate animation frame
+ */
+function renderAndGateFrame(frame, frameIndex, totalFrames) {
+  const { complex, signalResult, title, description } = frame;
+  const lines = [];
+
+  // Header
+  lines.push(`${ANSI.FG_MAGENTA}${ANSI.BOLD}${title}${ANSI.RESET}`);
+  lines.push(`${ANSI.DIM}${description}${ANSI.RESET}`);
+  lines.push('');
+
+  // Render the complex
+  const asciiRender = ASCIIRenderer.renderComplex(complex);
+  lines.push(...asciiRender.split('\n'));
+  lines.push('');
+
+  // Build signal state display
+  const entities = complex.getEntities();
+  const proteinEntities = entities.filter(e => e.moleculeType === 'protein');
+
+  if (proteinEntities.length > 0 && signalResult?.state) {
+    const signalBoxes = [];
+    const labels = [];
+
+    for (const entity of proteinEntities) {
+      const state = signalResult.state.get(entity.index);
+      const isOn = state?.on ?? false;
+      const isSource = state?.source ?? false;
+      const isAnd = entity.type === 'AND';
+
+      // Signal box - highlight AND gate differently
+      if (isAnd) {
+        if (isOn) {
+          signalBoxes.push(`[${ANSI.FG_MAGENTA}${ANSI.BOLD}&&&&${ANSI.RESET}]`);
+        } else {
+          signalBoxes.push(`[${ANSI.FG_RED}----${ANSI.RESET}]`);
+        }
+      } else if (isOn) {
+        const color = isSource ? ANSI.FG_YELLOW : ANSI.FG_GREEN;
+        signalBoxes.push(`[${color}****${ANSI.RESET}]`);
+      } else {
+        signalBoxes.push('[    ]');
+      }
+
+      // Label
+      labels.push(entity.type.padEnd(6));
+    }
+
+    lines.push('   Signals: ' + signalBoxes.join(' '));
+    lines.push('            ' + labels.join(' '));
+
+    // Show state labels
+    const stateLabels = proteinEntities.map(e => {
+      const state = signalResult.state.get(e.index);
+      if (state?.source) return 'source';
+      if (state?.on) return '  on  ';
+      return ' off  ';
+    });
+    lines.push('            ' + stateLabels.join(' '));
+  }
+
+  // Show ATP consumed
+  if (frame.showConsumed) {
+    lines.push('');
+    lines.push(`${ANSI.FG_YELLOW}ATP consumed by AND gate!${ANSI.RESET}`);
+  }
+
+  // Summary
+  if (frame.showSummary) {
+    lines.push('');
+    lines.push(`${ANSI.FG_MAGENTA}${ANSI.BOLD}AND Gate Rules:${ANSI.RESET}`);
+    lines.push('  1. ALL signal-capable neighbors must be ON');
+    lines.push('  2. ATP must be adjacent (consumed on activation)');
+    lines.push('  3. Acts as a logical AND in signal circuits');
+  }
+
+  lines.push('');
+  lines.push(`${ANSI.DIM}[Frame ${frameIndex + 1}/${totalFrames}] (AND gate demonstration)${ANSI.RESET}`);
+
+  // Pad to consistent height
+  while (lines.length < 22) {
     lines.push('');
   }
 

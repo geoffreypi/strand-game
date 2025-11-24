@@ -229,7 +229,7 @@ describe('Signal Propagation - Steady State', () => {
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(0).on).toBe(true);  // Source on
     expect(result.state.get(1).on).toBe(true);  // SIG on (receives signal)
@@ -245,7 +245,7 @@ describe('Signal Propagation - Steady State', () => {
     ];
     const boundPairs = createBoundPairs([]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(0).on).toBe(false);
     expect(result.state.get(1).on).toBe(false);
@@ -263,7 +263,7 @@ describe('Signal Propagation - Steady State', () => {
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(0).on).toBe(true);
     expect(result.state.get(1).on).toBe(true);
@@ -282,7 +282,7 @@ describe('Signal Propagation - Steady State', () => {
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(1).on).toBe(true);
     expect(result.state.get(2).on).toBe(false);
@@ -310,7 +310,7 @@ describe('Signal Propagation - AND Gate', () => {
     const boundPairs = createBoundPairs([[0, 'A']]);
     const atpPositions = createAtpPositions([[2, 1]]); // ATP adjacent to AND
 
-    const result = computeSteadyState(residues, boundPairs, atpPositions, config);
+    const result = computeSteadyState(residues, boundPairs, atpPositions, config, () => 0);
 
     // AND has two signal neighbors: SIG at (1,0) is on, SIG at (3,0) is off
     expect(result.state.get(2).on).toBe(false);
@@ -333,7 +333,7 @@ describe('Signal Propagation - AND Gate', () => {
     const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
     const atpPositions = createAtpPositions([[2, 1]]); // ATP at (2,1) adjacent to AND at (2,0)
 
-    const result = computeSteadyState(residues, boundPairs, atpPositions, config);
+    const result = computeSteadyState(residues, boundPairs, atpPositions, config, () => 0);
 
     expect(result.state.get(2).on).toBe(true);
     expect(result.consumedAtp).toContain('2,1');
@@ -355,7 +355,7 @@ describe('Signal Propagation - AND Gate', () => {
     const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
     const atpPositions = createAtpPositions([]); // No ATP
 
-    const result = computeSteadyState(residues, boundPairs, atpPositions, config);
+    const result = computeSteadyState(residues, boundPairs, atpPositions, config, () => 0);
 
     expect(result.state.get(2).on).toBe(false);
   });
@@ -373,7 +373,7 @@ describe('Signal Propagation - AND Gate', () => {
     const boundPairs = createBoundPairs([]);
     const atpPositions = createAtpPositions([[0, 1]]);
 
-    const result = computeSteadyState(residues, boundPairs, atpPositions, config);
+    const result = computeSteadyState(residues, boundPairs, atpPositions, config, () => 0);
 
     expect(result.state.get(0).on).toBe(false);
   });
@@ -395,7 +395,7 @@ describe('Signal Propagation - Actuators', () => {
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(2).on).toBe(true);
   });
@@ -411,7 +411,7 @@ describe('Signal Propagation - Actuators', () => {
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(2).on).toBe(true);
   });
@@ -427,7 +427,7 @@ describe('Signal Propagation - Actuators', () => {
     ];
     const boundPairs = createBoundPairs([]);
 
-    const result = computeSteadyState(residues, boundPairs);
+    const result = computeSteadyState(residues, boundPairs, new Set(), DEFAULT_SIGNAL_CONFIG, () => 0);
 
     expect(result.state.get(1).on).toBe(false);
     expect(result.state.get(2).on).toBe(false);
@@ -479,7 +479,7 @@ describe('Signal Propagation - Tick Mode', () => {
   // EXPECTED: AND activates after "successful" random roll
   // WHY: Tick mode uses probability per tick
   test('probabilistic AND activates on successful roll', () => {
-    const config = { ...DEFAULT_SIGNAL_CONFIG, AND: 0.75 };
+    const config = { SIG: 1.0, AND: 0.75, PSH: 1.0, ATR: 1.0 };
 
     const residues = [
       createResidue(0, 'BTA', 0, 0),
@@ -491,15 +491,20 @@ describe('Signal Propagation - Tick Mode', () => {
     const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
     const atpPositions = createAtpPositions([[2, 1]]);
 
-    // Initial state - AND is off
-    const initialState = initializeSignalState(residues, boundPairs);
-    expect(initialState.get(2).on).toBe(false);
+    // Initial state - sources are on
+    let state = initializeSignalState(residues, boundPairs);
+    expect(state.get(2).on).toBe(false);
 
+    // Step 1: SIG neighbors activate (prob=1.0, always succeed)
+    state = computeTickUpdate(residues, state, boundPairs, atpPositions, config, () => 0).state;
+    expect(state.get(1).on).toBe(true);  // SIG1 now on
+    expect(state.get(3).on).toBe(true);  // SIG3 now on
+    expect(state.get(2).on).toBe(false); // AND not yet (neighbors weren't on at step start)
+
+    // Step 2: AND can now try to activate (both neighbors on)
     // Mock random to return 0.5 (< 0.75, success)
-    const mockRandom = () => 0.5;
-
     const result = computeTickUpdate(
-      residues, initialState, boundPairs, atpPositions, config, mockRandom
+      residues, state, boundPairs, atpPositions, config, () => 0.5
     );
 
     expect(result.state.get(2).on).toBe(true);
@@ -510,7 +515,7 @@ describe('Signal Propagation - Tick Mode', () => {
   // EXPECTED: AND stays off
   // WHY: Failed probability check means no activation this tick
   test('probabilistic AND stays off on failed roll', () => {
-    const config = { ...DEFAULT_SIGNAL_CONFIG, AND: 0.75 };
+    const config = { SIG: 1.0, AND: 0.75, PSH: 1.0, ATR: 1.0 };
 
     const residues = [
       createResidue(0, 'BTA', 0, 0),
@@ -522,23 +527,28 @@ describe('Signal Propagation - Tick Mode', () => {
     const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
     const atpPositions = createAtpPositions([[2, 1]]);
 
-    const initialState = initializeSignalState(residues, boundPairs);
+    // Initial state - sources are on
+    let state = initializeSignalState(residues, boundPairs);
 
+    // Step 1: SIG neighbors activate (prob=1.0)
+    state = computeTickUpdate(residues, state, boundPairs, atpPositions, config, () => 0).state;
+    expect(state.get(1).on).toBe(true);
+    expect(state.get(3).on).toBe(true);
+
+    // Step 2: AND tries to activate but fails probability check
     // Mock random to return 0.9 (> 0.75, fail)
-    const mockRandom = () => 0.9;
-
     const result = computeTickUpdate(
-      residues, initialState, boundPairs, atpPositions, config, mockRandom
+      residues, state, boundPairs, atpPositions, config, () => 0.9
     );
 
     expect(result.state.get(2).on).toBe(false);
     expect(result.activatedThisTick).not.toContain(2);
   });
 
-  // INPUT: SIG with instant config (1.0) in tick mode
-  // EXPECTED: SIG still propagates instantly
-  // WHY: Probability = 1.0 means instant, even in tick mode
-  test('instant residues propagate immediately in tick mode', () => {
+  // INPUT: SIG chain in stepped mode with prob=1.0
+  // EXPECTED: Only adjacent SIG activates in one step
+  // WHY: Stepped mode does one propagation step per call
+  test('stepped mode propagates one step at a time', () => {
     const config = { SIG: 1.0, AND: 0.75 };
 
     const residues = [
@@ -549,16 +559,25 @@ describe('Signal Propagation - Tick Mode', () => {
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
 
-    const initialState = initializeSignalState(residues, boundPairs);
+    // Step 0: Only source is on
+    let state = initializeSignalState(residues, boundPairs);
+    expect(state.get(0).on).toBe(true);   // Source
+    expect(state.get(1).on).toBe(false);  // Not yet
 
-    const result = computeTickUpdate(
-      residues, initialState, boundPairs, new Set(), config
-    );
-
-    // All SIGs should be on immediately (instant propagation)
+    // Step 1: SIG1 sees source, activates
+    let result = computeTickUpdate(residues, state, boundPairs, new Set(), config);
     expect(result.state.get(1).on).toBe(true);
+    expect(result.state.get(2).on).toBe(false);  // Not yet - neighbor wasn't on
+    expect(result.state.get(3).on).toBe(false);
+
+    // Step 2: SIG2 sees SIG1, activates
+    result = computeTickUpdate(residues, result.state, boundPairs, new Set(), config);
     expect(result.state.get(2).on).toBe(true);
-    expect(result.state.get(3).on).toBe(true);
+    expect(result.state.get(3).on).toBe(false);  // Not yet
+
+    // Step 3: SIG3 sees SIG2, activates
+    result = computeTickUpdate(residues, result.state, boundPairs, new Set(), config);
+    expect(result.state.get(3).on).toBe(true);  // Now all on
   });
 });
 
@@ -577,7 +596,8 @@ describe('Signal Propagation - computeSignals API', () => {
     ];
 
     const result = computeSignals(residues, {
-      boundPairs: createBoundPairs([[0, 'A']])
+      boundPairs: createBoundPairs([[0, 'A']]),
+      randomFn: () => 0  // Deterministic for test
     });
 
     expect(result.state.get(0).on).toBe(true);
@@ -598,7 +618,8 @@ describe('Signal Propagation - computeSignals API', () => {
     const result = computeSignals(residues, {
       boundPairs,
       previousState,
-      tickMode: true
+      tickMode: true,
+      randomFn: () => 0  // Deterministic for test
     });
 
     expect(result.state.get(1).on).toBe(true);
@@ -614,10 +635,11 @@ describe('Signal Propagation - Configuration', () => {
   // EXPECTED: Contains expected residue types
   // WHY: Verify default configuration is sensible
   test('default config has expected values', () => {
-    expect(DEFAULT_SIGNAL_CONFIG.SIG).toBe(1.0);
+    // All residue types default to 0.75 probability
+    expect(DEFAULT_SIGNAL_CONFIG.SIG).toBe(0.75);
     expect(DEFAULT_SIGNAL_CONFIG.AND).toBe(0.75);
-    expect(DEFAULT_SIGNAL_CONFIG.PSH).toBe(1.0);
-    expect(DEFAULT_SIGNAL_CONFIG.ATR).toBe(1.0);
+    expect(DEFAULT_SIGNAL_CONFIG.PSH).toBe(0.75);
+    expect(DEFAULT_SIGNAL_CONFIG.ATR).toBe(0.75);
   });
 
   // INPUT: Custom config with slow SIG
