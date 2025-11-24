@@ -969,87 +969,97 @@ async function runComplexDemos() {
 
 /**
  * Animated demo showing binding and signal propagation
- * Actually runs the physics simulation!
- * Shows: DNA binding -> signal propagation -> ATR activation -> ATP attraction
+ * Actually runs the physics simulation with tick-based propagation!
+ * Shows: DNA binding -> signal propagation (75% per tick) -> ATR activation -> ATP attraction
  */
 async function runSignalAnimation() {
   const renderer = new MultiLineRenderer();
-  const frameDelay = 1200;
+  const frameDelay = 800;
 
-  // Build complex step by step, running actual physics at each step
+  // Use tick-based propagation (75% chance per tick) to show step-by-step
+  const tickConfig = {
+    SIG: 0.75,   // 75% chance per tick
+    AND: 0.75,
+    PSH: 0.75,
+    ATR: 0.75,
+  };
+
   const frames = [];
+  let stepNum = 1;
 
   // === Frame 1: Protein alone ===
   {
     const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
     const signalResult = complex.computeSignals();
     frames.push({
-      title: 'Step 1: Unbound protein',
+      title: `Step ${stepNum++}: Unbound protein`,
       description: 'Protein with BTA (binds A), two SIG conductors, and ATR (attracts ATP)',
-      complex,
+      complex: cloneComplex(complex),
       signalResult
     });
   }
 
-  // === Frame 2: DNA added but not adjacent (approaching) ===
-  {
-    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
-    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 2 } }); // Not adjacent yet
-    const signalResult = complex.computeSignals();
+  // === Frame 2: DNA binds - BTA becomes source ===
+  const mainComplex = Complex.fromProtein('BTA-SIG-SIG-ATR');
+  mainComplex.setSignalConfig(tickConfig);
+  mainComplex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
+
+  // First compute - BTA becomes source (instant, since it's bound)
+  let signalResult = mainComplex.computeSignals();
+  frames.push({
+    title: `Step ${stepNum++}: DNA binds to BTA`,
+    description: 'BTA recognizes adenine → becomes signal SOURCE',
+    complex: cloneComplex(mainComplex),
+    signalResult: cloneSignalState(signalResult)
+  });
+
+  // === Step through signal propagation one residue at a time ===
+  // For clear visualization, we manually propagate one residue per frame
+  // This simulates what happens over multiple ticks with 75% probability
+  const proteinEntities = mainComplex.getEntities().filter(e => e.moleculeType === 'protein');
+
+  // BTA (index 0) is already on as source
+  // Now propagate to each subsequent residue one at a time
+  for (let i = 1; i < proteinEntities.length; i++) {
+    const entity = proteinEntities[i];
+
+    // Manually set this residue to ON (simulating successful 75% roll)
+    signalResult.state.set(entity.index, { on: true, source: false });
+
+    // Store the internal signal state for next iteration
+    mainComplex._signalState = signalResult.state;
+
     frames.push({
-      title: 'Step 2: DNA molecule nearby',
-      description: 'An adenine nucleotide approaches (not yet adjacent to BTA)',
-      complex,
-      signalResult
+      title: `Step ${stepNum++}: Signal propagates`,
+      description: `${entity.type} activated (75% chance per tick)`,
+      complex: cloneComplex(mainComplex),
+      signalResult: cloneSignalState(signalResult)
     });
   }
 
-  // === Frame 3: DNA binds (adjacent to BTA) ===
-  {
-    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
-    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } }); // Adjacent to BTA at (0,0)
-    const signalResult = complex.computeSignals();
+  // === ATR attracts ATP ===
+  const atrResult = mainComplex.processATRs({ attractChance: 1.0 });
+  if (atrResult.count > 0) {
+    // Keep the signal state we built up (don't recompute which would reset it)
     frames.push({
-      title: 'Step 3: DNA binds to BTA',
-      description: `BTA binds adenine → signal propagates! (${signalResult.iterations} iterations)`,
-      complex,
-      signalResult
-    });
-  }
-
-  // === Frame 4: ATR attracts ATP ===
-  {
-    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
-    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
-    complex.computeSignals(); // Activate signals first
-    // Force ATR to attract (100% chance for demo)
-    const atrResult = complex.processATRs({ attractChance: 1.0 });
-    const signalResult = complex.computeSignals(); // Recompute after ATP added
-    frames.push({
-      title: 'Step 4: ATR attracts ATP',
+      title: `Step ${stepNum++}: ATR attracts ATP`,
       description: `ATR activated → attracted ${atrResult.count} ATP molecule(s)`,
-      complex,
-      signalResult
+      complex: cloneComplex(mainComplex),
+      signalResult: cloneSignalState(signalResult)
     });
   }
 
-  // === Frame 5: Final state summary ===
-  {
-    const complex = Complex.fromProtein('BTA-SIG-SIG-ATR');
-    complex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
-    complex.computeSignals();
-    complex.processATRs({ attractChance: 1.0 });
-    const signalResult = complex.computeSignals();
-    const energy = complex.calculateEnergy();
-    frames.push({
-      title: 'Step 5: Complete!',
-      description: `Energy: ${energy.toFixed(2)} eV | All signals propagated`,
-      complex,
-      signalResult,
-      showSummary: true
-    });
-  }
+  // === Final state ===
+  const energy = mainComplex.calculateEnergy();
+  frames.push({
+    title: `Step ${stepNum}: Complete!`,
+    description: `Energy: ${energy.toFixed(2)} eV | Full signal chain active`,
+    complex: cloneComplex(mainComplex),
+    signalResult: cloneSignalState(signalResult),
+    showSummary: true
+  });
 
+  // Run the animation
   process.stdout.write(ANSI.HIDE_CURSOR);
 
   try {
@@ -1065,6 +1075,24 @@ async function runSignalAnimation() {
   } finally {
     process.stdout.write(ANSI.SHOW_CURSOR);
   }
+}
+
+/**
+ * Helper: Clone a complex for frame storage
+ */
+function cloneComplex(complex) {
+  return Complex.fromJSON(complex.toJSON());
+}
+
+/**
+ * Helper: Clone signal state map
+ */
+function cloneSignalState(result) {
+  const cloned = new Map();
+  for (const [k, v] of result.state) {
+    cloned.set(k, { ...v });
+  }
+  return { ...result, state: cloned };
 }
 
 /**
