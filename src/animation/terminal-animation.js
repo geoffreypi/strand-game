@@ -17,7 +17,7 @@
 
 import ASCIIRenderer from '../renderers/ascii-renderer.js';
 import { calculateFoldEnergy } from '../data/amino-acids.js';
-import { sequenceToHexGrid } from '../core/hex-layout.js';
+import { sequenceToHexGrid, getNeighbors } from '../core/hex-layout.js';
 import { buildTransitionMatrix, stepsToAngle, calculateFullEnergy } from '../physics/energy.js';
 import { Complex } from '../core/complex.js';
 import { Molecule } from '../core/molecule.js';
@@ -1037,16 +1037,36 @@ async function runSignalAnimation() {
     });
   }
 
-  // === ATR attracts ATP ===
-  const atrResult = mainComplex.processATRs({ attractChance: 1.0 });
-  if (atrResult.count > 0) {
-    // Keep the signal state we built up (don't recompute which would reset it)
-    frames.push({
-      title: `Step ${stepNum++}: ATR attracts ATP`,
-      description: `ATR activated → attracted ${atrResult.count} ATP molecule(s)`,
-      complex: cloneComplex(mainComplex),
-      signalResult: cloneSignalState(signalResult)
-    });
+  // === ATR attracts ATP until surrounded ===
+  // Physics: ATR keeps attracting (75% per tick) while signaled until no empty neighbors
+  let atpCount = 0;
+  const maxAtpTicks = 10; // Safety limit
+
+  for (let tick = 0; tick < maxAtpTicks; tick++) {
+    // Check if ATR has any empty neighbors left
+    const atrEntity = mainComplex.getEntities().find(e => e.type === 'ATR');
+    if (!atrEntity) break;
+
+    const neighbors = getNeighbors(atrEntity.q, atrEntity.r);
+    const emptyNeighbors = neighbors.filter(n => !mainComplex.isOccupied(n.q, n.r));
+
+    if (emptyNeighbors.length === 0) {
+      // ATR is surrounded, stop
+      break;
+    }
+
+    // Try to attract ATP (100% for demo, normally 75%)
+    const atrResult = mainComplex.processATRs({ attractChance: 1.0 });
+
+    if (atrResult.count > 0) {
+      atpCount++;
+      frames.push({
+        title: `Step ${stepNum++}: ATR attracts ATP (#${atpCount})`,
+        description: `ATP attracted to (${atrResult.attracted[0].q}, ${atrResult.attracted[0].r}) | ${emptyNeighbors.length - 1} spots remaining`,
+        complex: cloneComplex(mainComplex),
+        signalResult: cloneSignalState(signalResult)
+      });
+    }
   }
 
   // === Final state ===
