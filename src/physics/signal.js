@@ -4,7 +4,9 @@
  * Computes signal states for residues based on:
  * - Signal sources: BTx residues bound to matching DNA bases
  * - Signal conductors: SIG (OR logic - on if ANY adjacent is on)
- * - Logic gates: AND (on if ALL adjacent signal-capable are on, requires ATP)
+ * - Gate ports: INP (input, OR of sources), OUT (output, OR of gates or routed from SGX)
+ * - Signal router: SGX (crossroads - routes INP to diametrically opposite OUT)
+ * - Logic gates: AND (on if ALL INPs are on + ATP), NOT (on if ALL INPs are off + ATP)
  * - Actuators: PSH, ATR (respond to signals like SIG)
  *
  * Two propagation modes:
@@ -29,7 +31,11 @@ import {
  */
 export const DEFAULT_SIGNAL_CONFIG = {
   SIG: 0.75,   // 75% chance per step
+  INP: 1.0,    // 100% (instant wire, no probability)
+  OUT: 1.0,    // 100% (instant wire, no probability)
+  SGX: 0.75,   // 75% chance per step (signal crossroads/router)
   AND: 0.75,   // 75% chance per step (also requires ATP)
+  NOT: 0.75,   // 75% chance per step (also requires ATP)
   PSH: 0.75,   // 75% chance per step
   ATR: 0.75,   // 75% chance per step
 };
@@ -133,8 +139,50 @@ export function initializeSignalState(residues, boundPairs) {
 }
 
 /**
+ * Find connected components of SIG residues
+ * Uses DFS to group SIG residues that are adjacent to each other
+ * @param {Array} residues - [{index, type, q, r}, ...]
+ * @param {Map} positionMap - Position -> residue map
+ * @returns {Array<Set>} Array of Sets, each containing indices of connected SIGs
+ */
+function findSigComponents(residues, positionMap) {
+  const sigResidues = residues.filter(r => getSignalingType(r.type) === 'conductor');
+  const visited = new Set();
+  const components = [];
+
+  for (const sig of sigResidues) {
+    if (visited.has(sig.index)) continue;
+
+    // DFS to find all connected SIGs
+    const component = new Set();
+    const stack = [sig];
+
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (visited.has(current.index)) continue;
+
+      visited.add(current.index);
+      component.add(current.index);
+
+      // Find adjacent SIG neighbors
+      const neighbors = getAdjacentResidues(current.q, current.r, positionMap);
+      for (const neighbor of neighbors) {
+        if (getSignalingType(neighbor.type) === 'conductor' && !visited.has(neighbor.index)) {
+          stack.push(neighbor);
+        }
+      }
+    }
+
+    components.push(component);
+  }
+
+  return components;
+}
+
+/**
  * Compute ONE step of signal propagation
- * Each OFF residue with ON neighbor(s) has a chance to activate based on probability.
+ * SIG residues propagate instantly through connected components.
+ * Other residues (gates, ports, actuators) activate with probability.
  *
  * @param {Array} residues - [{index, type, q, r}, ...]
  * @param {Map} currentState - Current signal state
@@ -162,6 +210,44 @@ export function computeOneStep(
     newState.set(index, { ...s });
   }
 
+  // PHASE 1: Process SIG components (instant propagation)
+  const sigComponents = findSigComponents(residues, positionMap);
+
+  for (const component of sigComponents) {
+    // Check if ANY SIG in this component has an ON source neighbor
+    let shouldBeOn = false;
+
+    for (const sigIndex of component) {
+      const sig = residues.find(r => r.index === sigIndex);
+      const neighbors = getSignalCapableNeighbors(sig.q, sig.r, positionMap);
+
+      // Check for ON neighbors that are NOT other SIGs in this component
+      for (const neighbor of neighbors) {
+        if (component.has(neighbor.index)) continue; // Skip SIGs in same component
+
+        if (currentState.get(neighbor.index)?.on) {
+          shouldBeOn = true;
+          break;
+        }
+      }
+
+      if (shouldBeOn) break;
+    }
+
+    // Set entire component to same state (instant propagation)
+    for (const sigIndex of component) {
+      const current = currentState.get(sigIndex) || { on: false, source: false };
+      if (shouldBeOn !== current.on) {
+        newState.set(sigIndex, { ...current, on: shouldBeOn });
+        changed = true;
+        if (shouldBeOn) {
+          activatedThisTick.push(sigIndex);
+        }
+      }
+    }
+  }
+
+  // PHASE 2: Process non-SIG residues (gates, ports, actuators) with probability
   for (const residue of residues) {
     const current = currentState.get(residue.index) || { on: false, source: false };
 
@@ -171,14 +257,17 @@ export function computeOneStep(
     const signalingType = getSignalingType(residue.type);
     if (!signalingType) continue;
 
+    // Skip SIG (already processed in Phase 1)
+    if (signalingType === 'conductor') continue;
+
     const signalNeighbors = getSignalCapableNeighbors(residue.q, residue.r, positionMap);
     const prob = config[residue.type] ?? 1.0;
 
     let shouldBeOn = current.on;
 
-    if (signalingType === 'conductor' || signalingType === 'actuator') {
+    if (signalingType === 'actuator') {
       // OR logic: on if ANY neighbor is on
-      const anyNeighborOn = signalNeighbors.some(neighbor => currentState.get(neighbor.index)?.on);
+      const anyNeighborOn = signalNeighbors.some(neighbor => newState.get(neighbor.index)?.on);
 
       if (anyNeighborOn && !current.on) {
         // Trying to turn on - roll probability
@@ -191,12 +280,75 @@ export function computeOneStep(
       } else {
         shouldBeOn = false; // Turn off (neighbor went off)
       }
+    } else if (signalingType === 'input_port') {
+      // INP: OR of adjacent sources (SIG, BTx, OUT)
+      // Checks: SIG, OUT, and BTx (sources) - does not check gates
+      const sourceNeighbors = signalNeighbors.filter(n => {
+        const nType = getSignalingType(n.type);
+        return nType === 'conductor' || nType === 'output_port' || isSignalSource(n.type);
+      });
+      const anySourceOn = sourceNeighbors.some(neighbor => newState.get(neighbor.index)?.on);
+
+      if (anySourceOn && !current.on) {
+        if (randomFn() < prob) {
+          shouldBeOn = true;
+          activatedThisTick.push(residue.index);
+        }
+      } else if (anySourceOn) {
+        shouldBeOn = true;
+      } else {
+        shouldBeOn = false;
+      }
+    } else if (signalingType === 'output_port') {
+      // OUT: OR of adjacent gates (AND, NOT) OR routed from SGX
+      const gateNeighbors = signalNeighbors.filter(n => {
+        const nType = getSignalingType(n.type);
+        return nType === 'and_gate' || nType === 'not_gate';
+      });
+      const anyGateOn = gateNeighbors.some(neighbor => newState.get(neighbor.index)?.on);
+
+      // Check if routed through SGX crossroads
+      const sgxNeighbors = signalNeighbors.filter(n => getSignalingType(n.type) === 'crossroads');
+      let routedFromSgx = false;
+
+      for (const sgx of sgxNeighbors) {
+        // Calculate diametrically opposite position through this SGX
+        const dq = residue.q - sgx.q;
+        const dr = residue.r - sgx.r;
+        const oppositeQ = sgx.q - dq;
+        const oppositeR = sgx.r - dr;
+        const oppositeKey = `${oppositeQ},${oppositeR}`;
+        const oppositeResidue = positionMap.get(oppositeKey);
+
+        // Check if opposite is an INP that's ON
+        if (oppositeResidue && getSignalingType(oppositeResidue.type) === 'input_port') {
+          if (newState.get(oppositeResidue.index)?.on) {
+            routedFromSgx = true;
+            break;
+          }
+        }
+      }
+
+      const shouldActivate = anyGateOn || routedFromSgx;
+
+      if (shouldActivate && !current.on) {
+        if (randomFn() < prob) {
+          shouldBeOn = true;
+          activatedThisTick.push(residue.index);
+        }
+      } else if (shouldActivate) {
+        shouldBeOn = true;
+      } else {
+        shouldBeOn = false;
+      }
     } else if (signalingType === 'and_gate') {
-      // AND logic: on if ALL signal-capable neighbors are on
-      if (signalNeighbors.length === 0) {
+      // AND logic: on if ALL adjacent INP residues are on + ATP
+      const inpNeighbors = signalNeighbors.filter(n => getSignalingType(n.type) === 'input_port');
+
+      if (inpNeighbors.length === 0) {
         shouldBeOn = false;
       } else {
-        const allOn = signalNeighbors.every(neighbor => currentState.get(neighbor.index)?.on);
+        const allOn = inpNeighbors.every(neighbor => newState.get(neighbor.index)?.on);
 
         if (allOn && !current.on) {
           // Trying to turn on - need ATP and probability
@@ -213,6 +365,32 @@ export function computeOneStep(
           shouldBeOn = true; // Stay on
         } else {
           shouldBeOn = false; // Turn off
+        }
+      }
+    } else if (signalingType === 'not_gate') {
+      // NOT logic: on if ALL adjacent INP residues are OFF + ATP (NOR behavior)
+      const inpNeighbors = signalNeighbors.filter(n => getSignalingType(n.type) === 'input_port');
+
+      if (inpNeighbors.length === 0) {
+        shouldBeOn = false;
+      } else {
+        const allOff = inpNeighbors.every(neighbor => !newState.get(neighbor.index)?.on);
+
+        if (allOff && !current.on) {
+          // Trying to turn on - need ATP and probability
+          if (randomFn() < prob) {
+            const atpKey = findAdjacentAtp(residue.q, residue.r, atpPositions);
+            if (atpKey) {
+              shouldBeOn = true;
+              consumedAtp.push(atpKey);
+              atpPositions.delete(atpKey);
+              activatedThisTick.push(residue.index);
+            }
+          }
+        } else if (allOff) {
+          shouldBeOn = true; // Stay on
+        } else {
+          shouldBeOn = false; // Turn off (an INP turned on)
         }
       }
     }

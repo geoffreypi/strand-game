@@ -1077,7 +1077,7 @@ describe('Physics Energy Calculations', () => {
         expect(AMINO_ACID_TYPES[code].mass).toBeGreaterThan(0);
       }
 
-      expect(Object.keys(AMINO_ACID_TYPES).length).toBe(21);
+      expect(Object.keys(AMINO_ACID_TYPES).length).toBe(25);
     });
 
     test('new AAs can be used in protein sequences', () => {

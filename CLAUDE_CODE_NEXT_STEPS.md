@@ -78,23 +78,50 @@
    - Ensure no self-overlap
    - Visualize folding process
 
+### Molecular Logic System (Priority 2.5) - NEW
+
+See `docs/molecular-logic.md` for full design document.
+
+7. **Implement NOT Gate**
+   - Inverter logic (input ON → output OFF)
+   - Respects N→C signal flow directionality
+   - Test with conditional circuits
+
+8. **Implement PSH (Push) Actuator**
+   - Consumes ATP when signaled
+   - Translates bound molecule 1 hex in a direction
+   - Core mechanic for transcription (walking along DNA)
+
+9. **Implement EJT (Eject) Actuator**
+   - Consumes ATP when signaled
+   - Unbinds adjacent molecule
+   - Used for promoter detachment and transcription termination
+
+10. **Refine RPF (Replicate Forward)**
+    - Reads DNA base in "up" direction
+    - Creates complementary RNA base in "down" direction
+    - Consumes ATP
+
+11. **Build Transcription Demo**
+    - Two-protein model (initiation factor + polymerase)
+    - Signal logic gates walking along DNA
+    - mRNA synthesis and termination
+
 ### Future Work (Priority 3)
 
-7. **Catalytic Systems**
-   - RPF (transcription): DNA → RNA
-   - PBF (translation): RNA → Protein
-   - Test with starter proteins
+12. **Catalytic Systems (Expanded)**
+    - PBF (translation): RNA → Protein
+    - Test with starter proteins
 
-8. **Polish & Features**
+13. **Polish & Features**
    - UI for molecule creation
    - Statistics display
    - Performance optimization
    - Save/load functionality
 
-9. **Advanced Mechanics** (deferred)
-   - ATP energy system
-   - Heat/temperature simulation
-   - Heat shuttle proteins
+14. **Advanced Mechanics** (deferred)
+    - Heat/temperature simulation
+    - Heat shuttle proteins
 
 ---
 
@@ -105,6 +132,7 @@ protein-folding-game/
 ├── docs/
 │   ├── design.md           # Complete game design
 │   ├── implementation.md   # ECS architecture
+│   ├── molecular-logic.md  # Signal system & logic gates (NEW)
 │   └── hex-test.html       # Hex grid test
 ├── src/
 │   └── renderers/

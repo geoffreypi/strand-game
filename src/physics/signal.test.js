@@ -316,18 +316,18 @@ describe('Signal Propagation - AND Gate', () => {
     expect(result.state.get(2).on).toBe(false);
   });
 
-  // INPUT: AND with both SIG neighbors on + adjacent ATP
+  // INPUT: AND with both INP neighbors on + adjacent ATP
   // EXPECTED: AND is on, ATP consumed
   // WHY: All conditions met - AND activates
   test('AND turns on when all inputs on and ATP available', () => {
-    const config = { ...DEFAULT_SIGNAL_CONFIG, AND: 1.0 };
+    const config = { ...DEFAULT_SIGNAL_CONFIG, AND: 1.0, INP: 1.0 };
 
-    // Two sources powering two SIGs that both connect to AND
+    // Two sources powering two INPs that both connect to AND
     const residues = [
       createResidue(0, 'BTA', 0, 0),   // Source 1
-      createResidue(1, 'SIG', 1, 0),   // On from source 1
+      createResidue(1, 'INP', 1, 0),   // INP - on from source 1
       createResidue(2, 'AND', 2, 0),   // AND gate - neighbors are (1,0) and (3,0)
-      createResidue(3, 'SIG', 3, 0),   // On from source 2
+      createResidue(3, 'INP', 3, 0),   // INP - on from source 2
       createResidue(4, 'BTA', 4, 0)    // Source 2
     ];
     const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
@@ -479,13 +479,13 @@ describe('Signal Propagation - Tick Mode', () => {
   // EXPECTED: AND activates after "successful" random roll
   // WHY: Tick mode uses probability per tick
   test('probabilistic AND activates on successful roll', () => {
-    const config = { SIG: 1.0, AND: 0.75, PSH: 1.0, ATR: 1.0 };
+    const config = { INP: 1.0, AND: 0.75, PSH: 1.0, ATR: 1.0 };
 
     const residues = [
       createResidue(0, 'BTA', 0, 0),
-      createResidue(1, 'SIG', 1, 0),
+      createResidue(1, 'INP', 1, 0),
       createResidue(2, 'AND', 2, 0),
-      createResidue(3, 'SIG', 3, 0),
+      createResidue(3, 'INP', 3, 0),
       createResidue(4, 'BTA', 4, 0)
     ];
     const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
@@ -495,10 +495,10 @@ describe('Signal Propagation - Tick Mode', () => {
     let state = initializeSignalState(residues, boundPairs);
     expect(state.get(2).on).toBe(false);
 
-    // Step 1: SIG neighbors activate (prob=1.0, always succeed)
+    // Step 1: INP neighbors activate (prob=1.0, always succeed)
     state = computeTickUpdate(residues, state, boundPairs, atpPositions, config, () => 0).state;
-    expect(state.get(1).on).toBe(true);  // SIG1 now on
-    expect(state.get(3).on).toBe(true);  // SIG3 now on
+    expect(state.get(1).on).toBe(true);  // INP1 now on
+    expect(state.get(3).on).toBe(true);  // INP3 now on
     expect(state.get(2).on).toBe(false); // AND not yet (neighbors weren't on at step start)
 
     // Step 2: AND can now try to activate (both neighbors on)
@@ -545,10 +545,10 @@ describe('Signal Propagation - Tick Mode', () => {
     expect(result.activatedThisTick).not.toContain(2);
   });
 
-  // INPUT: SIG chain in stepped mode with prob=1.0
-  // EXPECTED: Only adjacent SIG activates in one step
-  // WHY: Stepped mode does one propagation step per call
-  test('stepped mode propagates one step at a time', () => {
+  // INPUT: SIG chain in stepped mode
+  // EXPECTED: All connected SIGs activate instantly in one step
+  // WHY: SIG-to-SIG propagation is instant (acts like wire)
+  test('stepped mode propagates SIG instantly', () => {
     const config = { SIG: 1.0, AND: 0.75 };
 
     const residues = [
@@ -564,20 +564,11 @@ describe('Signal Propagation - Tick Mode', () => {
     expect(state.get(0).on).toBe(true);   // Source
     expect(state.get(1).on).toBe(false);  // Not yet
 
-    // Step 1: SIG1 sees source, activates
+    // Step 1: ALL connected SIGs activate instantly
     let result = computeTickUpdate(residues, state, boundPairs, new Set(), config);
-    expect(result.state.get(1).on).toBe(true);
-    expect(result.state.get(2).on).toBe(false);  // Not yet - neighbor wasn't on
-    expect(result.state.get(3).on).toBe(false);
-
-    // Step 2: SIG2 sees SIG1, activates
-    result = computeTickUpdate(residues, result.state, boundPairs, new Set(), config);
-    expect(result.state.get(2).on).toBe(true);
-    expect(result.state.get(3).on).toBe(false);  // Not yet
-
-    // Step 3: SIG3 sees SIG2, activates
-    result = computeTickUpdate(residues, result.state, boundPairs, new Set(), config);
-    expect(result.state.get(3).on).toBe(true);  // Now all on
+    expect(result.state.get(1).on).toBe(true);  // All SIGs turn on
+    expect(result.state.get(2).on).toBe(true);  // instantly in
+    expect(result.state.get(3).on).toBe(true);  // same tick
   });
 });
 
@@ -642,27 +633,303 @@ describe('Signal Propagation - Configuration', () => {
     expect(DEFAULT_SIGNAL_CONFIG.ATR).toBe(0.75);
   });
 
-  // INPUT: Custom config with slow SIG
-  // EXPECTED: SIG respects custom probability
-  // WHY: Config should be customizable per residue type
+  // INPUT: Custom config with probabilistic ATR
+  // EXPECTED: ATR respects custom probability (SIG is instant now)
+  // WHY: Config should be customizable per residue type (gates/actuators, not SIG)
   test('custom config affects propagation', () => {
-    const config = { SIG: 0.5, AND: 0.75, PSH: 1.0, ATR: 1.0 };
+    const config = { SIG: 1.0, AND: 0.75, PSH: 1.0, ATR: 0.5 };
 
     const residues = [
       createResidue(0, 'BTA', 0, 0),
-      createResidue(1, 'SIG', 1, 0)
+      createResidue(1, 'SIG', 1, 0),
+      createResidue(2, 'ATR', 2, 0)
     ];
     const boundPairs = createBoundPairs([[0, 'A']]);
     const initialState = initializeSignalState(residues, boundPairs);
 
-    // With 50% chance and mock returning 0.6 (fail)
-    const mockRandom = () => 0.6;
-
-    const result = computeTickUpdate(
-      residues, initialState, boundPairs, new Set(), config, mockRandom
+    // With 50% chance and mock returning 0.6 (fail), ATR should not activate
+    let result = computeTickUpdate(
+      residues, initialState, boundPairs, new Set(), config, () => 0.6
     );
+    expect(result.state.get(1).on).toBe(true);  // SIG is on (instant)
+    expect(result.state.get(2).on).toBe(false); // ATR fails (0.6 > 0.5)
 
-    // SIG should fail to activate (0.6 > 0.5)
-    expect(result.state.get(1).on).toBe(false);
+    // With mock returning 0.4 (success), ATR should activate
+    result = computeTickUpdate(
+      residues, result.state, boundPairs, new Set(), config, () => 0.4
+    );
+    expect(result.state.get(2).on).toBe(true); // ATR activates (0.4 < 0.5)
+  });
+});
+
+// =============================================================================
+// INP/OUT/NOT GATE TESTS
+// =============================================================================
+
+describe('Signal Propagation - INP/OUT/NOT Gates', () => {
+  // Test INP as input port
+  test('INP receives signal from SIG and BTx sources', () => {
+    const config = { SIG: 1.0, INP: 1.0 };
+
+    const residues = [
+      createResidue(0, 'BTA', 0, 0),   // Source
+      createResidue(1, 'SIG', 1, 0),   // Conductor
+      createResidue(2, 'INP', 2, 0)    // Input port
+    ];
+    const boundPairs = createBoundPairs([[0, 'A']]);
+
+    const result = computeSteadyState(residues, boundPairs, new Set(), config, () => 0);
+
+    expect(result.state.get(0).on).toBe(true);  // Source
+    expect(result.state.get(1).on).toBe(true);  // SIG
+    expect(result.state.get(2).on).toBe(true);  // INP
+  });
+
+  // Test OUT propagates from gates to SIG
+  test('OUT receives signal from AND gate and propagates to SIG', () => {
+    const config = { INP: 1.0, AND: 1.0, OUT: 1.0, SIG: 1.0 };
+
+    const residues = [
+      createResidue(0, 'BTA', 0, 0),   // Source 1
+      createResidue(1, 'INP', 1, 0),   // INP 1
+      createResidue(2, 'AND', 2, 0),   // AND gate
+      createResidue(3, 'INP', 3, 0),   // INP 2
+      createResidue(4, 'BTA', 4, 0),   // Source 2
+      createResidue(5, 'OUT', 2, 1),   // OUT (adjacent to AND)
+      createResidue(6, 'SIG', 2, 2)    // SIG (adjacent to OUT)
+    ];
+    const boundPairs = createBoundPairs([[0, 'A'], [4, 'A']]);
+    const atpPositions = createAtpPositions([[2, -1]]);  // ATP adjacent to AND
+
+    const result = computeSteadyState(residues, boundPairs, atpPositions, config, () => 0);
+
+    expect(result.state.get(2).on).toBe(true);  // AND is on
+    expect(result.state.get(5).on).toBe(true);  // OUT receives from AND
+    expect(result.state.get(6).on).toBe(true);  // SIG receives from OUT
+  });
+
+  // Test NOT gate with single input (inverter)
+  test('NOT gate inverts single INP input', () => {
+    const config = { INP: 1.0, NOT: 1.0 };
+
+    // Case 1: INP is OFF → NOT is ON
+    const residues1 = [
+      createResidue(0, 'INP', 0, 0),   // INP (no source, stays OFF)
+      createResidue(1, 'NOT', 1, 0)    // NOT gate
+    ];
+    const atpPositions1 = createAtpPositions([[1, 1]]);  // ATP adjacent to NOT
+
+    const result1 = computeSteadyState(residues1, new Map(), atpPositions1, config, () => 0);
+
+    expect(result1.state.get(0).on).toBe(false);  // INP is OFF
+    expect(result1.state.get(1).on).toBe(true);   // NOT is ON (inverted)
+
+    // Case 2: INP is ON → NOT is OFF
+    const residues2 = [
+      createResidue(0, 'BTA', 0, 0),   // Source
+      createResidue(1, 'INP', 1, 0),   // INP (receives from source)
+      createResidue(2, 'NOT', 2, 0)    // NOT gate
+    ];
+    const boundPairs2 = createBoundPairs([[0, 'A']]);
+    const atpPositions2 = createAtpPositions([[2, 1]]);
+
+    const result2 = computeSteadyState(residues2, boundPairs2, atpPositions2, config, () => 0);
+
+    expect(result2.state.get(1).on).toBe(true);   // INP is ON
+    expect(result2.state.get(2).on).toBe(false);  // NOT is OFF
+  });
+
+  // Test NOT gate with multiple inputs (NOR behavior)
+  test('NOT gate with multiple INPs only ON when ALL INPs are OFF', () => {
+    const config = { INP: 1.0, NOT: 1.0 };
+
+    // Both INPs OFF → NOT is ON
+    const residues1 = [
+      createResidue(0, 'INP', 0, 0),
+      createResidue(1, 'NOT', 1, 0),
+      createResidue(2, 'INP', 2, 0)
+    ];
+    const atpPositions1 = createAtpPositions([[1, 1]]);
+
+    const result1 = computeSteadyState(residues1, new Map(), atpPositions1, config, () => 0);
+
+    expect(result1.state.get(0).on).toBe(false);
+    expect(result1.state.get(2).on).toBe(false);
+    expect(result1.state.get(1).on).toBe(true);  // NOT is ON (both inputs OFF)
+
+    // One INP ON → NOT is OFF
+    const residues2 = [
+      createResidue(0, 'BTA', 0, 0),   // Source
+      createResidue(1, 'INP', 1, 0),   // INP 1 (ON)
+      createResidue(2, 'NOT', 2, 0),
+      createResidue(3, 'INP', 3, 0)    // INP 2 (OFF)
+    ];
+    const boundPairs2 = createBoundPairs([[0, 'A']]);
+    const atpPositions2 = createAtpPositions([[2, 1]]);
+
+    const result2 = computeSteadyState(residues2, boundPairs2, atpPositions2, config, () => 0);
+
+    expect(result2.state.get(1).on).toBe(true);   // INP 1 is ON
+    expect(result2.state.get(3).on).toBe(false);  // INP 2 is OFF
+    expect(result2.state.get(2).on).toBe(false);  // NOT is OFF (one input ON)
+  });
+
+  // Complex circuit: Conditional logic with NOT
+  test('Complex circuit: BTx-INP-NOT-OUT-INP-AND-OUT', () => {
+    const config = { INP: 1.0, NOT: 1.0, AND: 1.0, OUT: 1.0 };
+
+    // Circuit: Check if BTx is NOT bound AND another signal is ON
+    const residues = [
+      createResidue(0, 'BTA', 0, 0),      // BTx (will be unbound → INP1 OFF)
+      createResidue(1, 'INP', 1, 0),      // INP1 (for NOT input)
+      createResidue(2, 'NOT', 2, 0),      // NOT gate
+      createResidue(3, 'OUT', 3, 0),      // OUT from NOT
+      createResidue(4, 'INP', 4, 0),      // INP2 (for AND, receives from OUT)
+      createResidue(5, 'INP', 4, 1),      // INP3 (for AND, from other source)
+      createResidue(6, 'BTA', 5, 1),      // Other source (bound)
+      createResidue(7, 'AND', 3, 1),      // AND gate
+      createResidue(8, 'OUT', 2, 1)       // Final OUT
+    ];
+
+    const boundPairs = createBoundPairs([[6, 'A']]);  // Only second BTx is bound
+    const atpPositions = createAtpPositions([[2, 1], [3, 2]]);  // ATP for NOT and AND
+
+    const result = computeSteadyState(residues, boundPairs, atpPositions, config, () => 0);
+
+    // BTx unbound → INP1 OFF → NOT ON → OUT ON → INP2 ON
+    // Other BTx bound → INP3 ON
+    // Both INPs to AND are ON → AND fires
+    expect(result.state.get(0).on).toBe(false);  // BTx unbound
+    expect(result.state.get(1).on).toBe(false);  // INP1 OFF
+    expect(result.state.get(2).on).toBe(true);   // NOT ON (input OFF)
+    expect(result.state.get(3).on).toBe(true);   // OUT ON (from NOT)
+    expect(result.state.get(4).on).toBe(true);   // INP2 ON (from OUT)
+    expect(result.state.get(5).on).toBe(true);   // INP3 ON (from bound BTx)
+    expect(result.state.get(6).on).toBe(true);   // BTx bound
+    expect(result.state.get(7).on).toBe(true);   // AND ON (both INPs ON)
+    expect(result.state.get(8).on).toBe(true);   // Final OUT ON
+  });
+});
+
+// =============================================================================
+// SGX CROSSROADS TESTS
+// =============================================================================
+
+describe('Signal Propagation - SGX Crossroads', () => {
+  // Test basic SGX routing: East-West
+  test('SGX routes signal from East INP to West OUT', () => {
+    const config = { INP: 1.0, OUT: 1.0, SGX: 1.0 };
+
+    // Layout: BTA(E)--INP--SGX--OUT
+    const residues = [
+      createResidue(0, 'BTA', 2, 0),   // East: source
+      createResidue(1, 'INP', 1, 0),   // East of SGX
+      createResidue(2, 'SGX', 0, 0),   // Center
+      createResidue(3, 'OUT', -1, 0)   // West of SGX
+    ];
+    const boundPairs = createBoundPairs([[0, 'A']]);
+
+    const result = computeSteadyState(residues, boundPairs, new Set(), config, () => 0);
+
+    expect(result.state.get(0).on).toBe(true);   // Source
+    expect(result.state.get(1).on).toBe(true);   // INP (from source)
+    expect(result.state.get(3).on).toBe(true);   // OUT (routed through SGX)
+  });
+
+  // Test SGX routing: Northeast-Southwest
+  test('SGX routes signal from NE INP to SW OUT', () => {
+    const config = { INP: 1.0, OUT: 1.0, SGX: 1.0 };
+
+    // Layout:
+    //     BTA--INP (NE)
+    //         /
+    //       SGX
+    //         \
+    //         OUT (SW)
+    const residues = [
+      createResidue(0, 'BTA', 2, -1),  // Northeast source
+      createResidue(1, 'INP', 1, -1),  // NE of SGX (q+1, r-1)
+      createResidue(2, 'SGX', 0, 0),   // Center
+      createResidue(3, 'OUT', -1, 1)   // SW of SGX (q-1, r+1)
+    ];
+    const boundPairs = createBoundPairs([[0, 'A']]);
+
+    const result = computeSteadyState(residues, boundPairs, new Set(), config, () => 0);
+
+    expect(result.state.get(1).on).toBe(true);   // INP (from source)
+    expect(result.state.get(3).on).toBe(true);   // OUT (routed through SGX)
+  });
+
+  // Test SGX with multiple crossing paths
+  test('SGX routes multiple crossing signals simultaneously', () => {
+    const config = { INP: 1.0, OUT: 1.0, SGX: 1.0, SIG: 1.0 };
+
+    // Two crossing paths:
+    // Path 1: E → W
+    // Path 2: NE → SW
+    const residues = [
+      // Path 1: East to West
+      createResidue(0, 'BTA', 2, 0),   // East source
+      createResidue(1, 'INP', 1, 0),   // East INP
+      createResidue(2, 'SGX', 0, 0),   // Crossroads
+      createResidue(3, 'OUT', -1, 0),  // West OUT
+      createResidue(4, 'SIG', -2, 0),  // West endpoint
+
+      // Path 2: Northeast to Southwest
+      createResidue(5, 'BTA', 2, -1),  // NE source
+      createResidue(6, 'INP', 1, -1),  // NE INP
+      createResidue(7, 'OUT', -1, 1),  // SW OUT
+      createResidue(8, 'SIG', -2, 2)   // SW endpoint
+    ];
+    const boundPairs = createBoundPairs([[0, 'A'], [5, 'A']]);
+
+    const result = computeSteadyState(residues, boundPairs, new Set(), config, () => 0);
+
+    // Path 1 complete
+    expect(result.state.get(1).on).toBe(true);   // East INP
+    expect(result.state.get(3).on).toBe(true);   // West OUT
+    expect(result.state.get(4).on).toBe(true);   // West SIG
+
+    // Path 2 complete
+    expect(result.state.get(6).on).toBe(true);   // NE INP
+    expect(result.state.get(7).on).toBe(true);   // SW OUT
+    expect(result.state.get(8).on).toBe(true);   // SW SIG
+  });
+
+  // Test SGX one-way diode behavior
+  test('SGX only routes from INP to OUT, not reverse', () => {
+    const config = { INP: 1.0, OUT: 1.0, SGX: 1.0 };
+
+    // Try to send signal from OUT side (should NOT work)
+    const residues = [
+      createResidue(0, 'BTA', -2, 0),  // West source
+      createResidue(1, 'OUT', -1, 0),  // West OUT (trying to route backward)
+      createResidue(2, 'SGX', 0, 0),   // Center
+      createResidue(3, 'INP', 1, 0)    // East INP (should stay OFF)
+    ];
+    const boundPairs = createBoundPairs([[0, 'A']]);
+
+    const result = computeSteadyState(residues, boundPairs, new Set(), config, () => 0);
+
+    // OUT should be on from adjacent gate/source, but INP should NOT be routed through SGX
+    expect(result.state.get(3).on).toBe(false);  // INP stays OFF (no reverse routing)
+  });
+
+  // Test SGX with no matching opposite OUT
+  test('SGX does nothing when opposite side has no OUT', () => {
+    const config = { INP: 1.0, OUT: 1.0, SGX: 1.0 };
+
+    // INP on East, but no OUT on West
+    const residues = [
+      createResidue(0, 'BTA', 2, 0),   // East source
+      createResidue(1, 'INP', 1, 0),   // East INP
+      createResidue(2, 'SGX', 0, 0)    // Center (no OUT on opposite side)
+    ];
+    const boundPairs = createBoundPairs([[0, 'A']]);
+
+    const result = computeSteadyState(residues, boundPairs, new Set(), config, () => 0);
+
+    expect(result.state.get(1).on).toBe(true);   // INP is ON
+    // No OUT to activate - that's fine, no error
   });
 });

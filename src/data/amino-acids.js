@@ -16,10 +16,10 @@
  * - DNA/RNA BINDING (4): BTA, BTC, BTG, BTT - Sequence recognition
  * - MECHANICAL (1): CRL - DNA/RNA manipulation
  * - CATALYTIC (2): RPF, PBF - Transcription & translation
- * - SIGNALING (2): SIG, AND - Signal propagation and logic gates
+ * - SIGNALING (6): SIG, INP, OUT, SGX, AND, NOT - Signal propagation, routing, and logic gates
  * - ACTUATORS (2): PSH, ATR - Signal-activated effectors
  *
- * Total: 21 amino acid types
+ * Total: 25 amino acid types
  */
 
 /**
@@ -269,6 +269,42 @@ export const AMINO_ACID_TYPES = {
     description: 'Conducts signals. Becomes "on" if any adjacent powered residue is on (implicit OR).'
   },
 
+  INP: {
+    name: 'Input-Port',
+    code: 'INP',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 95,
+    signaling: 'input_port',  // One-way valve into gates (OR of inputs, passes to gates)
+    description: 'Input port. ON if any adjacent source is ON. Passes state to adjacent gates. Does not propagate to SIG.'
+  },
+
+  OUT: {
+    name: 'Output-Port',
+    code: 'OUT',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 95,
+    signaling: 'output_port',  // One-way valve out of gates (OR of gate outputs, propagates to SIG)
+    description: 'Output port. ON if any adjacent gate outputs ON. Propagates signal to adjacent SIG. Does not pass back to gates.'
+  },
+
+  SGX: {
+    name: 'Signal-Crossroads',
+    code: 'SGX',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 100,
+    signaling: 'crossroads',  // Routes signals from INP to diametrically opposite OUT
+    description: 'Signal crossroads/router. For each adjacent INP that is ON, activates the diametrically opposite OUT. Acts as signal diode (one-way flow).'
+  },
+
   AND: {
     name: 'And-Gate',
     code: 'AND',
@@ -277,8 +313,20 @@ export const AMINO_ACID_TYPES = {
     charge: 0,
     hydrophobicity: 'neutral',
     mass: 110,
-    signaling: 'and_gate',  // Only powered if ALL adjacent powered residues are on
-    description: 'Logic AND gate. Only "on" if ALL adjacent signal-capable residues are on.'
+    signaling: 'and_gate',  // Only powered if ALL adjacent INPs are on + ATP
+    description: 'Logic AND gate. ON when ALL adjacent INP residues are ON + ATP adjacent. Outputs through OUT.'
+  },
+
+  NOT: {
+    name: 'Not-Gate',
+    code: 'NOT',
+    foldingPreference: null,
+    preferredSteps: 0,
+    charge: 0,
+    hydrophobicity: 'neutral',
+    mass: 105,
+    signaling: 'not_gate',  // Powered when ALL adjacent INPs are off + ATP (NOR behavior)
+    description: 'Logic NOT/NOR gate. ON when ALL adjacent INP residues are OFF + ATP adjacent. Outputs through OUT.'
   },
 
   // ========================================================================
