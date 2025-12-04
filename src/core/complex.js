@@ -17,12 +17,12 @@ import {
   applyBend,
   getNeighbors
 } from './hex-layout.js';
-import { computeSignals, DEFAULT_SIGNAL_CONFIG } from '../physics/signal.js';
+import { DEFAULT_SIGNAL_CONFIG } from '../physics/signal.js';
+import { signalSystem } from '../ecs/systems/signalSystem.js';
 import {
   AMINO_ACID_TYPES,
   ENERGY_CONSTANTS,
-  getBindingTarget,
-  canSignal
+  getBindingTarget
 } from '../data/amino-acids.js';
 import { World } from '../ecs/World.js';
 import {
@@ -54,6 +54,9 @@ export class Complex {
     // Track molecule entries for serialization and molecule-level operations
     // This is a lightweight index: moleculeId -> {molecule, offset, direction}
     this._moleculeIndex = new Map();
+
+    // Global index counter for assigning unique indices to residues
+    this._nextGlobalIndex = 0;
 
     // Cached position data (rebuilt when molecules change)
     this._positionMap = null;      // "q,r" -> {moleculeId, index, type, q, r}
@@ -105,6 +108,9 @@ export class Complex {
     for (let i = 0; i < molecule.length; i++) {
       const entity = this.world.createEntity();
 
+      // Assign globally unique index
+      const globalIndex = this._nextGlobalIndex++;
+
       // Add Position component
       this.world.addComponent(
         entity,
@@ -112,12 +118,12 @@ export class Complex {
         createPositionComponent(currentQ, currentR, molecule.id)
       );
 
-      // Add Residue component
+      // Add Residue component with global index
       const foldState = molecule.getFoldAt(i);
       this.world.addComponent(
         entity,
         COMPONENT_TYPES.RESIDUE,
-        createResidueComponent(molecule.getTypeAt(i), foldState, i)
+        createResidueComponent(molecule.getTypeAt(i), foldState, globalIndex)
       );
 
       // Move to next position (apply fold, then step)
@@ -406,8 +412,6 @@ export class Complex {
    * @returns {Object} Signal computation result
    */
   computeSignals(options = {}) {
-    this._rebuildPositions();
-
     const {
       atpPositions = new Set(),
       stepped = false,
@@ -418,17 +422,8 @@ export class Complex {
     // Build bound pairs from current bindings
     const boundPairs = this.findBindings();
 
-    // Convert entities to format expected by signal.js
-    const residues = this._entities
-      .filter(e => canSignal(e.type) || getBindingTarget(e.type))
-      .map(e => ({
-        index: e.index,
-        type: e.type,
-        q: e.q,
-        r: e.r
-      }));
-
-    const result = computeSignals(residues, {
+    // Call ECS signal system with World
+    const result = signalSystem(this.world, {
       boundPairs,
       atpPositions,
       previousState: this._signalState,
