@@ -24,6 +24,12 @@ import {
   getBindingTarget,
   canSignal
 } from '../data/amino-acids.js';
+import { World } from '../ecs/World.js';
+import {
+  COMPONENT_TYPES,
+  createPositionComponent,
+  createResidueComponent
+} from '../ecs/components.js';
 
 /**
  * Entry for a molecule in a complex
@@ -42,8 +48,12 @@ export class Complex {
   constructor(options = {}) {
     this.id = options.id ?? `complex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    /** @type {MoleculeEntry[]} */
-    this.entries = [];
+    // ECS World stores all entities and components
+    this.world = new World();
+
+    // Track molecule entries for serialization and molecule-level operations
+    // This is a lightweight index: moleculeId -> {molecule, offset, direction}
+    this._moleculeIndex = new Map();
 
     // Cached position data (rebuilt when molecules change)
     this._positionMap = null;      // "q,r" -> {moleculeId, index, type, q, r}
@@ -69,9 +79,60 @@ export class Complex {
       offset: options.offset ? { ...options.offset } : { q: 0, r: 0 },
       direction: options.direction ?? 0
     };
-    this.entries.push(entry);
+
+    // Store in molecule index
+    this._moleculeIndex.set(molecule.id, entry);
+
+    // Create entities in World for this molecule
+    this._createMoleculeEntities(entry);
+
     this._dirty = true;
     return this;
+  }
+
+  /**
+   * Create entities in World for a molecule
+   * @private
+   * @param {Object} entry - MoleculeEntry {molecule, offset, direction}
+   */
+  _createMoleculeEntities(entry) {
+    const { molecule, offset, direction } = entry;
+
+    let currentQ = offset.q;
+    let currentR = offset.r;
+    let currentDir = direction;
+
+    for (let i = 0; i < molecule.length; i++) {
+      const entity = this.world.createEntity();
+
+      // Add Position component
+      this.world.addComponent(
+        entity,
+        COMPONENT_TYPES.POSITION,
+        createPositionComponent(currentQ, currentR, molecule.id)
+      );
+
+      // Add Residue component
+      const foldState = molecule.getFoldAt(i);
+      this.world.addComponent(
+        entity,
+        COMPONENT_TYPES.RESIDUE,
+        createResidueComponent(molecule.getTypeAt(i), foldState, i)
+      );
+
+      // Move to next position (apply fold, then step)
+      if (i < molecule.length - 1) {
+        // Apply fold (change direction based on fold state)
+        if (foldState !== 0) {
+          const angle = Math.abs(foldState) * 60;
+          const dir = foldState > 0 ? 'left' : 'right';
+          currentDir = applyBend(currentDir, angle, dir);
+        }
+
+        // Step forward
+        [currentQ, currentR] = moveInDirection(currentQ, currentR, currentDir);
+      }
+    }
   }
 
   /**
@@ -81,13 +142,29 @@ export class Complex {
    */
   removeMolecule(moleculeOrId) {
     const id = typeof moleculeOrId === 'string' ? moleculeOrId : moleculeOrId.id;
-    const index = this.entries.findIndex(e => e.molecule.id === id);
-    if (index >= 0) {
-      this.entries.splice(index, 1);
-      this._dirty = true;
-      return true;
+
+    if (!this._moleculeIndex.has(id)) {
+      return false;
     }
-    return false;
+
+    // Find and destroy all entities belonging to this molecule
+    const positions = this.world.getComponents(COMPONENT_TYPES.POSITION);
+    const entitiesToDestroy = [];
+
+    for (const [entityId, position] of positions) {
+      if (position.moleculeId === id) {
+        entitiesToDestroy.push(entityId);
+      }
+    }
+
+    for (const entityId of entitiesToDestroy) {
+      this.world.destroyEntity(entityId);
+    }
+
+    // Remove from molecule index
+    this._moleculeIndex.delete(id);
+    this._dirty = true;
+    return true;
   }
 
   /**
@@ -96,7 +173,7 @@ export class Complex {
    * @returns {MoleculeEntry|null}
    */
   getEntry(moleculeId) {
-    return this.entries.find(e => e.molecule.id === moleculeId) || null;
+    return this._moleculeIndex.get(moleculeId) || null;
   }
 
   /**
@@ -108,13 +185,32 @@ export class Complex {
    */
   setMoleculePosition(moleculeId, q, r, direction = undefined) {
     const entry = this.getEntry(moleculeId);
-    if (entry) {
-      entry.offset = { q, r };
-      if (direction !== undefined) {
-        entry.direction = direction;
-      }
-      this._dirty = true;
+    if (!entry) return;
+
+    // Update entry
+    entry.offset = { q, r };
+    if (direction !== undefined) {
+      entry.direction = direction;
     }
+
+    // Recreate entities for this molecule with new position
+    // First, remove old entities
+    const positions = this.world.getComponents(COMPONENT_TYPES.POSITION);
+    const entitiesToDestroy = [];
+
+    for (const [entityId, position] of positions) {
+      if (position.moleculeId === moleculeId) {
+        entitiesToDestroy.push(entityId);
+      }
+    }
+
+    for (const entityId of entitiesToDestroy) {
+      this.world.destroyEntity(entityId);
+    }
+
+    // Create new entities
+    this._createMoleculeEntities(entry);
+    this._dirty = true;
   }
 
   /**
@@ -122,7 +218,7 @@ export class Complex {
    * @returns {Molecule[]}
    */
   get molecules() {
-    return this.entries.map(e => e.molecule);
+    return Array.from(this._moleculeIndex.values()).map(e => e.molecule);
   }
 
   /**
@@ -130,7 +226,16 @@ export class Complex {
    * @returns {number}
    */
   get size() {
-    return this.entries.reduce((sum, e) => sum + e.molecule.length, 0);
+    return this.world.entityCount;
+  }
+
+  /**
+   * Get entries (for internal use and compatibility)
+   * @private
+   * @returns {MoleculeEntry[]}
+   */
+  get entries() {
+    return Array.from(this._moleculeIndex.values());
   }
 
   // ===========================================================================
@@ -147,68 +252,40 @@ export class Complex {
     this._positionMap = new Map();
     this._entities = [];
 
-    for (const entry of this.entries) {
-      const positions = this._computeMoleculePositions(entry);
+    // Query all entities with Position and Residue components
+    const entityIds = this.world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
 
-      for (const entity of positions) {
-        const key = `${entity.q},${entity.r}`;
+    for (const entityId of entityIds) {
+      const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
 
-        // Check for collision
-        if (this._positionMap.has(key)) {
-          const existing = this._positionMap.get(key);
-          console.warn(`Position collision at (${entity.q}, ${entity.r}): ` +
-            `${existing.moleculeId}[${existing.index}] and ${entity.moleculeId}[${entity.index}]`);
-        }
+      // Get molecule type from index
+      const entry = this._moleculeIndex.get(position.moleculeId);
+      const moleculeType = entry ? entry.molecule.type : 'unknown';
 
-        this._positionMap.set(key, entity);
-        this._entities.push(entity);
+      const entity = {
+        moleculeId: position.moleculeId,
+        moleculeType,
+        index: residue.index,
+        type: residue.type,
+        q: position.q,
+        r: position.r
+      };
+
+      const key = `${entity.q},${entity.r}`;
+
+      // Check for collision
+      if (this._positionMap.has(key)) {
+        const existing = this._positionMap.get(key);
+        console.warn(`Position collision at (${entity.q}, ${entity.r}): ` +
+          `${existing.moleculeId}[${existing.index}] and ${entity.moleculeId}[${entity.index}]`);
       }
+
+      this._positionMap.set(key, entity);
+      this._entities.push(entity);
     }
 
     this._dirty = false;
-  }
-
-  /**
-   * Compute hex positions for a single molecule
-   * @private
-   * @param {MoleculeEntry} entry
-   * @returns {Array} Array of positioned entities
-   */
-  _computeMoleculePositions(entry) {
-    const { molecule, offset, direction } = entry;
-    const positions = [];
-
-    let currentQ = offset.q;
-    let currentR = offset.r;
-    let currentDir = direction;
-
-    for (let i = 0; i < molecule.length; i++) {
-      positions.push({
-        moleculeId: molecule.id,
-        moleculeType: molecule.type,
-        index: i,
-        type: molecule.getTypeAt(i),
-        q: currentQ,
-        r: currentR
-      });
-
-      // Move to next position (apply fold, then step)
-      if (i < molecule.length - 1) {
-        const foldState = molecule.getFoldAt(i);
-
-        // Apply fold (change direction based on fold state)
-        if (foldState !== 0) {
-          const angle = Math.abs(foldState) * 60;
-          const dir = foldState > 0 ? 'left' : 'right';
-          currentDir = applyBend(currentDir, angle, dir);
-        }
-
-        // Step forward
-        [currentQ, currentR] = moveInDirection(currentQ, currentR, currentDir);
-      }
-    }
-
-    return positions;
   }
 
   /**
@@ -664,10 +741,27 @@ export class Complex {
    */
   setFold(moleculeId, index, steps) {
     const entry = this.getEntry(moleculeId);
-    if (entry) {
-      entry.molecule.setFoldAt(index, steps);
-      this._dirty = true;
+    if (!entry) return;
+
+    // Update molecule's fold state
+    entry.molecule.setFoldAt(index, steps);
+
+    // Recreate entities for this molecule (positions will change)
+    const positions = this.world.getComponents(COMPONENT_TYPES.POSITION);
+    const entitiesToDestroy = [];
+
+    for (const [entityId, position] of positions) {
+      if (position.moleculeId === moleculeId) {
+        entitiesToDestroy.push(entityId);
+      }
     }
+
+    for (const entityId of entitiesToDestroy) {
+      this.world.destroyEntity(entityId);
+    }
+
+    this._createMoleculeEntities(entry);
+    this._dirty = true;
   }
 
   // ===========================================================================
