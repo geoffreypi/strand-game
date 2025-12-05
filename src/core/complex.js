@@ -20,8 +20,12 @@ import {
 import { DEFAULT_SIGNAL_CONFIG } from '../physics/signal.js';
 import { signalSystem } from '../ecs/systems/signalSystem.js';
 import {
+  processATRs as processATRsECS,
+  calculateEnergy as calculateEnergyECS,
+  getATPPositions as getATPPositionsECS
+} from '../ecs/systems/energySystem.js';
+import {
   AMINO_ACID_TYPES,
-  ENERGY_CONSTANTS,
   getBindingTarget
 } from '../data/amino-acids.js';
 import { World } from '../ecs/World.js';
@@ -470,41 +474,22 @@ export class Complex {
    * @returns {Object} { attracted: [{moleculeId, q, r}, ...], count: number }
    */
   processATRs(options = {}) {
-    this._rebuildPositions();
-
     const {
       attractChance = 0.75,
       randomFn = Math.random
     } = options;
 
-    const attracted = [];
-
-    for (const entity of this._entities) {
-      // Only process ATR residues
-      if (entity.type !== 'ATR') continue;
-
-      // Must be signaled (activated)
-      if (!this.isSignaled(entity.index)) continue;
-
-      // Roll for attraction
-      if (randomFn() >= attractChance) continue;
-
-      // Find an unoccupied adjacent hex (randomly selected)
-      const emptyHex = this._findEmptyAdjacentHex(entity.q, entity.r, randomFn);
-      if (!emptyHex) continue;
-
-      // Spawn ATP molecule at that position
-      const atpMol = Molecule.createATP();
-      this.addMolecule(atpMol, { offset: emptyHex });
-
-      attracted.push({
-        moleculeId: atpMol.id,
-        q: emptyHex.q,
-        r: emptyHex.r
-      });
-    }
-
-    return { attracted, count: attracted.length };
+    // Call ECS energy system with callback to spawn ATP
+    return processATRsECS(this.world, {
+      signalState: this._signalState,
+      attractChance,
+      randomFn,
+      onSpawnATP: (q, r) => {
+        const atpMol = Molecule.createATP();
+        this.addMolecule(atpMol, { offset: { q, r } });
+        return { moleculeId: atpMol.id };
+      }
+    });
   }
 
   /**
@@ -548,16 +533,7 @@ export class Complex {
    * @returns {Set} Set of "q,r" strings
    */
   getATPPositions() {
-    this._rebuildPositions();
-    const positions = new Set();
-
-    for (const entity of this._entities) {
-      if (entity.type === 'ATP') {
-        positions.add(`${entity.q},${entity.r}`);
-      }
-    }
-
-    return positions;
+    return getATPPositionsECS(this.world);
   }
 
   /**
@@ -583,125 +559,8 @@ export class Complex {
    * @returns {number} Total energy in eV
    */
   calculateEnergy() {
-    this._rebuildPositions();
-
-    let energy = 0;
-
-    // Folding preference energy
-    energy += this._calculateFoldingEnergy();
-
-    // Electrostatic energy
-    energy += this._calculateElectrostaticEnergy();
-
-    // Hydrophobic energy
-    energy += this._calculateHydrophobicEnergy();
-
-    // Binding energy (favorable when BTx bound to matching nucleotide)
-    energy += this._calculateBindingEnergy();
-
-    return energy;
-  }
-
-  /**
-   * Calculate folding preference energy
-   * @private
-   */
-  _calculateFoldingEnergy() {
-    let energy = 0;
-
-    for (const entry of this.entries) {
-      const mol = entry.molecule;
-      for (let i = 0; i < mol.length; i++) {
-        const type = mol.getTypeAt(i);
-        const aa = AMINO_ACID_TYPES[type];
-        if (!aa || aa.foldingPreference === null) continue;
-
-        const currentFold = mol.getFoldAt(i);
-        const preferredSteps = aa.preferredSteps || 0;
-        const distance = Math.abs(currentFold - preferredSteps);
-
-        energy += ENERGY_CONSTANTS.ANGULAR_PENALTY * distance;
-      }
-    }
-
-    return energy;
-  }
-
-  /**
-   * Calculate electrostatic energy
-   * @private
-   */
-  _calculateElectrostaticEnergy() {
-    let energy = 0;
-    const counted = new Set();
-
-    for (const entity of this._entities) {
-      const aa = AMINO_ACID_TYPES[entity.type];
-      if (!aa || aa.charge === 0) continue;
-
-      const neighbors = this.getNeighborsAt(entity.q, entity.r);
-      for (const neighbor of neighbors) {
-        const neighborAa = AMINO_ACID_TYPES[neighbor.type];
-        if (!neighborAa || neighborAa.charge === 0) continue;
-
-        // Avoid double-counting pairs
-        const pairKey = [
-          `${entity.moleculeId}:${entity.index}`,
-          `${neighbor.moleculeId}:${neighbor.index}`
-        ].sort().join('|');
-
-        if (counted.has(pairKey)) continue;
-        counted.add(pairKey);
-
-        // Coulomb energy: opposite charges attract (negative), same repel (positive)
-        energy += ENERGY_CONSTANTS.COULOMB_CONSTANT * aa.charge * neighborAa.charge;
-      }
-    }
-
-    return energy;
-  }
-
-  /**
-   * Calculate hydrophobic energy
-   * @private
-   */
-  _calculateHydrophobicEnergy() {
-    let energy = 0;
-
-    for (const entity of this._entities) {
-      const aa = AMINO_ACID_TYPES[entity.type];
-      if (!aa) continue;
-
-      const neighbors = this.getNeighborsAt(entity.q, entity.r);
-      const neighborCount = neighbors.length;
-      const isBuried = neighborCount >= 4; // Somewhat arbitrary threshold
-
-      if (aa.hydrophobicity === 'hydrophobic') {
-        if (isBuried) {
-          energy += ENERGY_CONSTANTS.HYDROPHOBIC_BURIAL;
-        } else {
-          energy += ENERGY_CONSTANTS.HYDROPHOBIC_EXPOSURE;
-        }
-      } else if (aa.hydrophobicity === 'hydrophilic') {
-        if (isBuried) {
-          energy += ENERGY_CONSTANTS.HYDROPHILIC_BURIAL;
-        } else {
-          energy += ENERGY_CONSTANTS.HYDROPHILIC_EXPOSURE;
-        }
-      }
-    }
-
-    return energy;
-  }
-
-  /**
-   * Calculate binding energy (BTx to nucleotide)
-   * @private
-   */
-  _calculateBindingEnergy() {
     const bindings = this.findBindings();
-    // Each successful binding provides favorable energy
-    return bindings.size * -1.0; // -1 eV per binding
+    return calculateEnergyECS(this.world, this._moleculeIndex, bindings);
   }
 
   // ===========================================================================
