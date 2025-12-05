@@ -35,7 +35,9 @@ import {
   createPositionComponent,
   createResidueComponent,
   createSignalComponent,
-  createMoleculeMetaComponent
+  createMoleculeMetaComponent,
+  createConfigComponent,
+  createIndexManagerComponent
 } from '../ecs/components.js';
 import { canSignal } from '../data/amino-acids.js';
 
@@ -62,14 +64,68 @@ export class Complex {
     // System scheduler manages system execution
     this.scheduler = new SystemScheduler(this.world);
 
+    // Create singleton entities for global state
+    this._createSingletonEntities();
+
     // Register systems
     this._registerSystems();
+  }
 
-    // Global index counter for assigning unique indices to residues
-    this._nextGlobalIndex = 0;
+  /**
+   * Create singleton entities for global state
+   * @private
+   */
+  _createSingletonEntities() {
+    // Config entity - holds signal propagation configuration
+    this._configEntityId = this.world.createEntity();
+    this.world.addComponent(
+      this._configEntityId,
+      COMPONENT_TYPES.CONFIG,
+      createConfigComponent({ ...DEFAULT_SIGNAL_CONFIG })
+    );
 
-    // Signal configuration
-    this._signalConfig = { ...DEFAULT_SIGNAL_CONFIG };
+    // Index manager entity - holds global index counter
+    this._indexManagerEntityId = this.world.createEntity();
+    this.world.addComponent(
+      this._indexManagerEntityId,
+      COMPONENT_TYPES.INDEX_MANAGER,
+      createIndexManagerComponent(0)
+    );
+  }
+
+  /**
+   * Get signal configuration from ConfigComponent
+   * @private
+   * @returns {Object}
+   */
+  _getSignalConfig() {
+    const config = this.world.getComponent(this._configEntityId, COMPONENT_TYPES.CONFIG);
+    return config.signalConfig;
+  }
+
+  /**
+   * Set signal configuration in ConfigComponent
+   * @private
+   * @param {Object} signalConfig
+   */
+  _setSignalConfig(signalConfig) {
+    const config = this.world.getComponent(this._configEntityId, COMPONENT_TYPES.CONFIG);
+    config.signalConfig = { ...signalConfig };
+  }
+
+  /**
+   * Get next global index and increment
+   * @private
+   * @returns {number}
+   */
+  _getNextGlobalIndex() {
+    const indexManager = this.world.getComponent(
+      this._indexManagerEntityId,
+      COMPONENT_TYPES.INDEX_MANAGER
+    );
+    const index = indexManager.nextIndex;
+    indexManager.nextIndex++;
+    return index;
   }
 
   /**
@@ -82,7 +138,7 @@ export class Complex {
       return signalSystemPure(world, {
         boundPairs: context.boundPairs || new Map(),
         atpPositions: context.atpPositions || new Set(),
-        config: context.config || this._signalConfig,
+        config: context.config || this._getSignalConfig(),
         stepped: context.stepped || false,
         randomFn: context.randomFn || Math.random
       });
@@ -153,7 +209,7 @@ export class Complex {
       const entity = this.world.createEntity();
 
       // Assign globally unique index
-      const globalIndex = this._nextGlobalIndex++;
+      const globalIndex = this._getNextGlobalIndex();
 
       // Add Position component
       this.world.addComponent(
@@ -546,7 +602,7 @@ export class Complex {
    * @param {Object} config - Per-type probabilities {SIG: 1.0, AND: 0.75, ...}
    */
   setSignalConfig(config) {
-    this._signalConfig = { ...DEFAULT_SIGNAL_CONFIG, ...config };
+    this._setSignalConfig({ ...DEFAULT_SIGNAL_CONFIG, ...config });
   }
 
   /**
@@ -573,7 +629,7 @@ export class Complex {
     const result = this.scheduler.runSystem('signal', {
       boundPairs,
       atpPositions,
-      config: this._signalConfig,
+      config: this._getSignalConfig(),
       stepped: stepped || tickMode,
       randomFn
     });
@@ -778,7 +834,7 @@ export class Complex {
         offset: e.offset,
         direction: e.direction
       })),
-      signalConfig: this._signalConfig
+      signalConfig: this._getSignalConfig()
     };
   }
 

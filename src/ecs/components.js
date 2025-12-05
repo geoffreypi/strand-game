@@ -89,6 +89,24 @@ export function createADPComponent(energy = 0) {
 }
 
 /**
+ * Configuration for signal propagation
+ * @typedef {Object} ConfigComponent
+ * @property {Object} signalConfig - Per-type propagation probabilities
+ */
+export function createConfigComponent(signalConfig = {}) {
+  return { signalConfig };
+}
+
+/**
+ * Global index manager for assigning unique indices
+ * @typedef {Object} IndexManagerComponent
+ * @property {number} nextIndex - Next available global index
+ */
+export function createIndexManagerComponent(nextIndex = 0) {
+  return { nextIndex };
+}
+
+/**
  * Component type names (constants for consistency)
  */
 export const COMPONENT_TYPES = {
@@ -100,4 +118,6 @@ export const COMPONENT_TYPES = {
   MOLECULE_META: 'MoleculeMeta',
   ATP: 'ATP',
   ADP: 'ADP',
+  CONFIG: 'Config',
+  INDEX_MANAGER: 'IndexManager',
 };
