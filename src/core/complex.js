@@ -29,6 +29,7 @@ import {
   getBindingTarget
 } from '../data/amino-acids.js';
 import { World } from '../ecs/World.js';
+import { SystemScheduler } from '../ecs/SystemScheduler.js';
 import {
   COMPONENT_TYPES,
   createPositionComponent,
@@ -58,11 +59,55 @@ export class Complex {
     // ECS World stores all entities and components
     this.world = new World();
 
+    // System scheduler manages system execution
+    this.scheduler = new SystemScheduler(this.world);
+
+    // Register systems
+    this._registerSystems();
+
     // Global index counter for assigning unique indices to residues
     this._nextGlobalIndex = 0;
 
     // Signal configuration
     this._signalConfig = { ...DEFAULT_SIGNAL_CONFIG };
+  }
+
+  /**
+   * Register ECS systems with the scheduler
+   * @private
+   */
+  _registerSystems() {
+    // Signal propagation system
+    this.scheduler.registerSystem('signal', (world, context) => {
+      return signalSystemPure(world, {
+        boundPairs: context.boundPairs || new Map(),
+        atpPositions: context.atpPositions || new Set(),
+        config: context.config || this._signalConfig,
+        stepped: context.stepped || false,
+        randomFn: context.randomFn || Math.random
+      });
+    }, { phase: 'physics', priority: 1 });
+
+    // Energy calculation system
+    this.scheduler.registerSystem('energy', (world, context) => {
+      return {
+        energy: calculateEnergyECS(world, context.bindings || new Map())
+      };
+    }, { phase: 'physics', priority: 2 });
+
+    // ATP attractor system (ATR residues)
+    this.scheduler.registerSystem('attractors', (world, context) => {
+      if (!context.onSpawnATP) {
+        return { attracted: [], count: 0 };
+      }
+
+      return processATRsECS(world, {
+        signalState: context.signalState || new Map(),
+        attractChance: context.attractChance || 0.75,
+        randomFn: context.randomFn || Math.random,
+        onSpawnATP: context.onSpawnATP
+      });
+    }, { phase: 'physics', priority: 3 });
   }
 
   /**
@@ -524,8 +569,8 @@ export class Complex {
     // Build bound pairs from current bindings
     const boundPairs = this.findBindings();
 
-    // Call pure ECS signal system - reads/writes SignalComponent directly
-    const result = signalSystemPure(this.world, {
+    // Run signal system via scheduler
+    const result = this.scheduler.runSystem('signal', {
       boundPairs,
       atpPositions,
       config: this._signalConfig,
@@ -603,8 +648,8 @@ export class Complex {
       signalState.set(residue.index, { on: signal.on, source: signal.source });
     }
 
-    // Call ECS energy system with callback to spawn ATP
-    return processATRsECS(this.world, {
+    // Run attractor system via scheduler
+    return this.scheduler.runSystem('attractors', {
       signalState,
       attractChance,
       randomFn,
@@ -659,7 +704,8 @@ export class Complex {
    */
   calculateEnergy() {
     const bindings = this.findBindings();
-    return calculateEnergyECS(this.world, bindings);
+    const result = this.scheduler.runSystem('energy', { bindings });
+    return result.energy;
   }
 
   // ===========================================================================
