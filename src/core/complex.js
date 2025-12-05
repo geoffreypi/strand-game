@@ -18,7 +18,7 @@ import {
   getNeighbors
 } from './hex-layout.js';
 import { DEFAULT_SIGNAL_CONFIG } from '../physics/signal.js';
-import { signalSystem } from '../ecs/systems/signalSystem.js';
+import { signalSystemPure } from '../ecs/systems/signalSystemPure.js';
 import {
   processATRs as processATRsECS,
   calculateEnergy as calculateEnergyECS,
@@ -32,8 +32,10 @@ import { World } from '../ecs/World.js';
 import {
   COMPONENT_TYPES,
   createPositionComponent,
-  createResidueComponent
+  createResidueComponent,
+  createSignalComponent
 } from '../ecs/components.js';
+import { canSignal } from '../data/amino-acids.js';
 
 /**
  * Entry for a molecule in a complex
@@ -62,8 +64,7 @@ export class Complex {
     // Global index counter for assigning unique indices to residues
     this._nextGlobalIndex = 0;
 
-    // Signal state
-    this._signalState = null;
+    // Signal configuration
     this._signalConfig = { ...DEFAULT_SIGNAL_CONFIG };
   }
 
@@ -118,11 +119,21 @@ export class Complex {
 
       // Add Residue component with global index
       const foldState = molecule.getFoldAt(i);
+      const residueType = molecule.getTypeAt(i);
       this.world.addComponent(
         entity,
         COMPONENT_TYPES.RESIDUE,
-        createResidueComponent(molecule.getTypeAt(i), foldState, globalIndex)
+        createResidueComponent(residueType, foldState, globalIndex)
       );
+
+      // Add Signal component if this residue can signal
+      if (canSignal(residueType) || getBindingTarget(residueType)) {
+        this.world.addComponent(
+          entity,
+          COMPONENT_TYPES.SIGNAL,
+          createSignalComponent(false, false, 1.0)
+        );
+      }
 
       // Move to next position (apply fold, then step)
       if (i < molecule.length - 1) {
@@ -436,18 +447,25 @@ export class Complex {
     // Build bound pairs from current bindings
     const boundPairs = this.findBindings();
 
-    // Call ECS signal system with World
-    const result = signalSystem(this.world, {
+    // Call pure ECS signal system - reads/writes SignalComponent directly
+    const result = signalSystemPure(this.world, {
       boundPairs,
       atpPositions,
-      previousState: this._signalState,
       config: this._signalConfig,
       stepped: stepped || tickMode,
       randomFn
     });
 
-    this._signalState = result.state;
-    return result;
+    // Build backward-compatible state Map for API compatibility
+    const state = new Map();
+    const entityIds = this.world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
+    for (const entityId of entityIds) {
+      const signal = this.world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+      state.set(residue.index, { on: signal.on, source: signal.source });
+    }
+
+    return { ...result, state };
   }
 
   /**
@@ -456,7 +474,16 @@ export class Complex {
    * @returns {Object|null} {on: boolean, source: boolean}
    */
   getSignalState(index) {
-    return this._signalState?.get(index) || null;
+    // Find entity with this residue index
+    const entityIds = this.world.query([COMPONENT_TYPES.RESIDUE, COMPONENT_TYPES.SIGNAL]);
+    for (const entityId of entityIds) {
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+      if (residue.index === index) {
+        const signal = this.world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
+        return { on: signal.on, source: signal.source };
+      }
+    }
+    return null;
   }
 
   /**
@@ -465,7 +492,8 @@ export class Complex {
    * @returns {boolean}
    */
   isSignaled(index) {
-    return this._signalState?.get(index)?.on ?? false;
+    const state = this.getSignalState(index);
+    return state?.on ?? false;
   }
 
   // ===========================================================================
@@ -489,9 +517,18 @@ export class Complex {
       randomFn = Math.random
     } = options;
 
+    // Build signal state from SignalComponents
+    const signalState = new Map();
+    const entityIds = this.world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
+    for (const entityId of entityIds) {
+      const signal = this.world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+      signalState.set(residue.index, { on: signal.on, source: signal.source });
+    }
+
     // Call ECS energy system with callback to spawn ATP
     return processATRsECS(this.world, {
-      signalState: this._signalState,
+      signalState,
       attractChance,
       randomFn,
       onSpawnATP: (q, r) => {
