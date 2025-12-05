@@ -62,11 +62,6 @@ export class Complex {
     // Global index counter for assigning unique indices to residues
     this._nextGlobalIndex = 0;
 
-    // Cached position data (rebuilt when molecules change)
-    this._positionMap = null;      // "q,r" -> {moleculeId, index, type, q, r}
-    this._entities = null;         // Array of all positioned entities
-    this._dirty = true;            // Flag to rebuild caches
-
     // Signal state
     this._signalState = null;
     this._signalConfig = { ...DEFAULT_SIGNAL_CONFIG };
@@ -93,7 +88,6 @@ export class Complex {
     // Create entities in World for this molecule
     this._createMoleculeEntities(entry);
 
-    this._dirty = true;
     return this;
   }
 
@@ -173,7 +167,6 @@ export class Complex {
 
     // Remove from molecule index
     this._moleculeIndex.delete(id);
-    this._dirty = true;
     return true;
   }
 
@@ -220,7 +213,6 @@ export class Complex {
 
     // Create new entities
     this._createMoleculeEntities(entry);
-    this._dirty = true;
   }
 
   /**
@@ -253,16 +245,11 @@ export class Complex {
   // ===========================================================================
 
   /**
-   * Rebuild position map from all molecules
-   * @private
+   * Get the position map
+   * @returns {Map} "q,r" -> entity
    */
-  _rebuildPositions() {
-    if (!this._dirty) return;
-
-    this._positionMap = new Map();
-    this._entities = [];
-
-    // Query all entities with Position and Residue components
+  getPositionMap() {
+    const map = new Map();
     const entityIds = this.world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
 
     for (const entityId of entityIds) {
@@ -283,37 +270,39 @@ export class Complex {
       };
 
       const key = `${entity.q},${entity.r}`;
-
-      // Check for collision
-      if (this._positionMap.has(key)) {
-        const existing = this._positionMap.get(key);
-        console.warn(`Position collision at (${entity.q}, ${entity.r}): ` +
-          `${existing.moleculeId}[${existing.index}] and ${entity.moleculeId}[${entity.index}]`);
-      }
-
-      this._positionMap.set(key, entity);
-      this._entities.push(entity);
+      map.set(key, entity);
     }
 
-    this._dirty = false;
+    return map;
   }
 
   /**
-   * Get the position map (rebuilds if dirty)
-   * @returns {Map} "q,r" -> entity
-   */
-  getPositionMap() {
-    this._rebuildPositions();
-    return this._positionMap;
-  }
-
-  /**
-   * Get all entities with positions (rebuilds if dirty)
+   * Get all entities with positions
    * @returns {Array}
    */
   getEntities() {
-    this._rebuildPositions();
-    return this._entities;
+    const entities = [];
+    const entityIds = this.world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
+
+    for (const entityId of entityIds) {
+      const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      // Get molecule type from index
+      const entry = this._moleculeIndex.get(position.moleculeId);
+      const moleculeType = entry ? entry.molecule.type : 'unknown';
+
+      entities.push({
+        moleculeId: position.moleculeId,
+        moleculeType,
+        index: residue.index,
+        type: residue.type,
+        q: position.q,
+        r: position.r
+      });
+    }
+
+    return entities;
   }
 
   /**
@@ -323,8 +312,28 @@ export class Complex {
    * @returns {Object|null}
    */
   getAt(q, r) {
-    this._rebuildPositions();
-    return this._positionMap.get(`${q},${r}`) || null;
+    const entityIds = this.world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
+
+    for (const entityId of entityIds) {
+      const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+
+      if (position.q === q && position.r === r) {
+        const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+        const entry = this._moleculeIndex.get(position.moleculeId);
+        const moleculeType = entry ? entry.molecule.type : 'unknown';
+
+        return {
+          moleculeId: position.moleculeId,
+          moleculeType,
+          index: residue.index,
+          type: residue.type,
+          q: position.q,
+          r: position.r
+        };
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -334,12 +343,11 @@ export class Complex {
    * @returns {Array}
    */
   getNeighborsAt(q, r) {
-    this._rebuildPositions();
     const neighbors = getNeighbors(q, r);
     const result = [];
 
     for (const n of neighbors) {
-      const entity = this._positionMap.get(`${n.q},${n.r}`);
+      const entity = this.getAt(n.q, n.r);
       if (entity) {
         result.push({ ...entity, direction: n.direction });
       }
@@ -355,8 +363,7 @@ export class Complex {
    * @returns {boolean}
    */
   isOccupied(q, r) {
-    this._rebuildPositions();
-    return this._positionMap.has(`${q},${r}`);
+    return this.getAt(q, r) !== null;
   }
 
   // ===========================================================================
@@ -368,24 +375,27 @@ export class Complex {
    * @returns {Map} residueIndex -> nucleotide
    */
   findBindings() {
-    this._rebuildPositions();
     const bindings = new Map();
+    const entityIds = this.world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
 
-    for (const entity of this._entities) {
-      const bindTarget = getBindingTarget(entity.type);
+    for (const entityId of entityIds) {
+      const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      const bindTarget = getBindingTarget(residue.type);
       if (!bindTarget) continue; // Not a binding residue
 
       // Check neighbors for matching nucleotide
-      const neighbors = this.getNeighborsAt(entity.q, entity.r);
+      const neighbors = this.getNeighborsAt(position.q, position.r);
       for (const neighbor of neighbors) {
         // Is neighbor a nucleotide that matches?
         if (neighbor.type === bindTarget) {
-          bindings.set(entity.index, neighbor.type);
+          bindings.set(residue.index, neighbor.type);
           break; // One binding per residue
         }
         // BTT also binds U
         if (bindTarget === 'T' && neighbor.type === 'U') {
-          bindings.set(entity.index, 'U');
+          bindings.set(residue.index, 'U');
           break;
         }
       }
@@ -493,31 +503,6 @@ export class Complex {
   }
 
   /**
-   * Find an unoccupied hex adjacent to a position
-   * Randomly selects from all available empty neighbors
-   * @private
-   * @param {number} q
-   * @param {number} r
-   * @param {Function} randomFn - Random function (default Math.random)
-   * @returns {Object|null} {q, r} of empty hex, or null if all occupied
-   */
-  _findEmptyAdjacentHex(q, r, randomFn = Math.random) {
-    const neighbors = getNeighbors(q, r);
-
-    // Collect all empty neighbors
-    const emptyNeighbors = neighbors.filter(n => !this.isOccupied(n.q, n.r));
-
-    if (emptyNeighbors.length === 0) {
-      return null;
-    }
-
-    // Randomly select one
-    const index = Math.floor(randomFn() * emptyNeighbors.length);
-    const selected = emptyNeighbors[index];
-    return { q: selected.q, r: selected.r };
-  }
-
-  /**
    * Check if a position contains ATP
    * @param {number} q
    * @param {number} r
@@ -615,7 +600,6 @@ export class Complex {
     }
 
     this._createMoleculeEntities(entry);
-    this._dirty = true;
   }
 
   // ===========================================================================
