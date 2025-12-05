@@ -176,15 +176,14 @@ export function getATPPositions(world) {
 /**
  * Calculate total energy of the complex
  * @param {World} world
- * @param {Map} moleculeIndex - Map of moleculeId -> {molecule, offset, direction}
  * @param {Map} bindings - Map of residueIndex -> nucleotide type
  * @returns {number} Total energy in eV
  */
-export function calculateEnergy(world, moleculeIndex, bindings = new Map()) {
+export function calculateEnergy(world, bindings = new Map()) {
   let energy = 0;
 
   // Folding preference energy
-  energy += calculateFoldingEnergy(world, moleculeIndex);
+  energy += calculateFoldingEnergy(world);
 
   // Electrostatic energy
   energy += calculateElectrostaticEnergy(world);
@@ -201,14 +200,18 @@ export function calculateEnergy(world, moleculeIndex, bindings = new Map()) {
 /**
  * Calculate folding preference energy
  * @param {World} world
- * @param {Map} moleculeIndex
  * @returns {number} Energy in eV
  */
-function calculateFoldingEnergy(world, moleculeIndex) {
+function calculateFoldingEnergy(world) {
   let energy = 0;
 
-  for (const [moleculeId, entry] of moleculeIndex) {
-    const mol = entry.molecule;
+  // Query all molecule metadata components
+  const metaEntityIds = world.query([COMPONENT_TYPES.MOLECULE_META]);
+
+  for (const metaEntityId of metaEntityIds) {
+    const meta = world.getComponent(metaEntityId, COMPONENT_TYPES.MOLECULE_META);
+    const mol = meta.molecule;
+
     for (let i = 0; i < mol.length; i++) {
       const type = mol.getTypeAt(i);
       const aa = AMINO_ACID_TYPES[type];

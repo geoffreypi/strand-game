@@ -61,13 +61,13 @@ export function createEnergyComponent(molecules = []) {
 /**
  * Metadata about a molecule (one per molecule, not per residue)
  * @typedef {Object} MoleculeMetaComponent
- * @property {string} id - Unique molecule ID
- * @property {string} sequence - Full sequence string
- * @property {string} type - Molecule type ('protein', 'dna', 'rna')
- * @property {number[]} foldStates - Array of fold state indices
+ * @property {Molecule} molecule - The molecule reference
+ * @property {number} offsetQ - Position offset q coordinate
+ * @property {number} offsetR - Position offset r coordinate
+ * @property {number} direction - Starting direction (0-5)
  */
-export function createMoleculeMetaComponent(id, sequence, type, foldStates) {
-  return { id, sequence, type, foldStates };
+export function createMoleculeMetaComponent(molecule, offsetQ, offsetR, direction) {
+  return { molecule, offsetQ, offsetR, direction };
 }
 
 /**

@@ -33,7 +33,8 @@ import {
   COMPONENT_TYPES,
   createPositionComponent,
   createResidueComponent,
-  createSignalComponent
+  createSignalComponent,
+  createMoleculeMetaComponent
 } from '../ecs/components.js';
 import { canSignal } from '../data/amino-acids.js';
 
@@ -57,10 +58,6 @@ export class Complex {
     // ECS World stores all entities and components
     this.world = new World();
 
-    // Track molecule entries for serialization and molecule-level operations
-    // This is a lightweight index: moleculeId -> {molecule, offset, direction}
-    this._moleculeIndex = new Map();
-
     // Global index counter for assigning unique indices to residues
     this._nextGlobalIndex = 0;
 
@@ -77,17 +74,19 @@ export class Complex {
    * @returns {Complex} this (for chaining)
    */
   addMolecule(molecule, options = {}) {
-    const entry = {
-      molecule,
-      offset: options.offset ? { ...options.offset } : { q: 0, r: 0 },
-      direction: options.direction ?? 0
-    };
+    const offset = options.offset ? { ...options.offset } : { q: 0, r: 0 };
+    const direction = options.direction ?? 0;
 
-    // Store in molecule index
-    this._moleculeIndex.set(molecule.id, entry);
+    // Create a molecule entity to hold metadata
+    const moleculeEntity = this.world.createEntity();
+    this.world.addComponent(
+      moleculeEntity,
+      COMPONENT_TYPES.MOLECULE_META,
+      createMoleculeMetaComponent(molecule, offset.q, offset.r, direction)
+    );
 
-    // Create entities in World for this molecule
-    this._createMoleculeEntities(entry);
+    // Create residue entities for this molecule
+    this._createMoleculeEntities(molecule, offset, direction);
 
     return this;
   }
@@ -95,10 +94,11 @@ export class Complex {
   /**
    * Create entities in World for a molecule
    * @private
-   * @param {Object} entry - MoleculeEntry {molecule, offset, direction}
+   * @param {Molecule} molecule
+   * @param {Object} offset - {q, r}
+   * @param {number} direction
    */
-  _createMoleculeEntities(entry) {
-    const { molecule, offset, direction } = entry;
+  _createMoleculeEntities(molecule, offset, direction) {
 
     let currentQ = offset.q;
     let currentR = offset.r;
@@ -158,11 +158,23 @@ export class Complex {
   removeMolecule(moleculeOrId) {
     const id = typeof moleculeOrId === 'string' ? moleculeOrId : moleculeOrId.id;
 
-    if (!this._moleculeIndex.has(id)) {
+    // Find the molecule meta entity
+    const metaEntities = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+    let moleculeMetaEntity = null;
+
+    for (const entityId of metaEntities) {
+      const meta = this.world.getComponent(entityId, COMPONENT_TYPES.MOLECULE_META);
+      if (meta.molecule.id === id) {
+        moleculeMetaEntity = entityId;
+        break;
+      }
+    }
+
+    if (moleculeMetaEntity === null) {
       return false;
     }
 
-    // Find and destroy all entities belonging to this molecule
+    // Find and destroy all residue entities belonging to this molecule
     const positions = this.world.getComponents(COMPONENT_TYPES.POSITION);
     const entitiesToDestroy = [];
 
@@ -176,8 +188,8 @@ export class Complex {
       this.world.destroyEntity(entityId);
     }
 
-    // Remove from molecule index
-    this._moleculeIndex.delete(id);
+    // Destroy molecule meta entity
+    this.world.destroyEntity(moleculeMetaEntity);
     return true;
   }
 
@@ -187,7 +199,20 @@ export class Complex {
    * @returns {MoleculeEntry|null}
    */
   getEntry(moleculeId) {
-    return this._moleculeIndex.get(moleculeId) || null;
+    const metaEntities = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+
+    for (const entityId of metaEntities) {
+      const meta = this.world.getComponent(entityId, COMPONENT_TYPES.MOLECULE_META);
+      if (meta.molecule.id === moleculeId) {
+        return {
+          molecule: meta.molecule,
+          offset: { q: meta.offsetQ, r: meta.offsetR },
+          direction: meta.direction
+        };
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -198,17 +223,29 @@ export class Complex {
    * @param {number} direction
    */
   setMoleculePosition(moleculeId, q, r, direction = undefined) {
-    const entry = this.getEntry(moleculeId);
-    if (!entry) return;
+    // Find and update molecule meta
+    const metaEntities = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+    let meta = null;
 
-    // Update entry
-    entry.offset = { q, r };
-    if (direction !== undefined) {
-      entry.direction = direction;
+    for (const entityId of metaEntities) {
+      const m = this.world.getComponent(entityId, COMPONENT_TYPES.MOLECULE_META);
+      if (m.molecule.id === moleculeId) {
+        meta = m;
+        break;
+      }
     }
 
-    // Recreate entities for this molecule with new position
-    // First, remove old entities
+    if (!meta) return;
+
+    // Update metadata
+    meta.offsetQ = q;
+    meta.offsetR = r;
+    if (direction !== undefined) {
+      meta.direction = direction;
+    }
+
+    // Recreate residue entities for this molecule with new position
+    // First, remove old residue entities
     const positions = this.world.getComponents(COMPONENT_TYPES.POSITION);
     const entitiesToDestroy = [];
 
@@ -222,8 +259,8 @@ export class Complex {
       this.world.destroyEntity(entityId);
     }
 
-    // Create new entities
-    this._createMoleculeEntities(entry);
+    // Create new residue entities
+    this._createMoleculeEntities(meta.molecule, { q, r }, meta.direction);
   }
 
   /**
@@ -231,7 +268,15 @@ export class Complex {
    * @returns {Molecule[]}
    */
   get molecules() {
-    return Array.from(this._moleculeIndex.values()).map(e => e.molecule);
+    const metaEntities = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+    const molecules = [];
+
+    for (const entityId of metaEntities) {
+      const meta = this.world.getComponent(entityId, COMPONENT_TYPES.MOLECULE_META);
+      molecules.push(meta.molecule);
+    }
+
+    return molecules;
   }
 
   /**
@@ -239,7 +284,8 @@ export class Complex {
    * @returns {number}
    */
   get size() {
-    return this.world.entityCount;
+    // Count only residue entities, not molecule metadata entities
+    return this.world.query([COMPONENT_TYPES.RESIDUE]).length;
   }
 
   /**
@@ -248,12 +294,43 @@ export class Complex {
    * @returns {MoleculeEntry[]}
    */
   get entries() {
-    return Array.from(this._moleculeIndex.values());
+    const metaEntities = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+    const entries = [];
+
+    for (const entityId of metaEntities) {
+      const meta = this.world.getComponent(entityId, COMPONENT_TYPES.MOLECULE_META);
+      entries.push({
+        molecule: meta.molecule,
+        offset: { q: meta.offsetQ, r: meta.offsetR },
+        direction: meta.direction
+      });
+    }
+
+    return entries;
   }
 
   // ===========================================================================
   // POSITION MAPPING
   // ===========================================================================
+
+  /**
+   * Get molecule metadata by moleculeId
+   * @private
+   * @param {string} moleculeId
+   * @returns {Object|null} Molecule metadata
+   */
+  _getMoleculeMeta(moleculeId) {
+    const metaEntities = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+
+    for (const entityId of metaEntities) {
+      const meta = this.world.getComponent(entityId, COMPONENT_TYPES.MOLECULE_META);
+      if (meta.molecule.id === moleculeId) {
+        return meta;
+      }
+    }
+
+    return null;
+  }
 
   /**
    * Get the position map
@@ -267,9 +344,9 @@ export class Complex {
       const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
       const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
 
-      // Get molecule type from index
-      const entry = this._moleculeIndex.get(position.moleculeId);
-      const moleculeType = entry ? entry.molecule.type : 'unknown';
+      // Get molecule type from meta component
+      const meta = this._getMoleculeMeta(position.moleculeId);
+      const moleculeType = meta ? meta.molecule.type : 'unknown';
 
       const entity = {
         moleculeId: position.moleculeId,
@@ -299,9 +376,9 @@ export class Complex {
       const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
       const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
 
-      // Get molecule type from index
-      const entry = this._moleculeIndex.get(position.moleculeId);
-      const moleculeType = entry ? entry.molecule.type : 'unknown';
+      // Get molecule type from MoleculeMetaComponent
+      const meta = this._getMoleculeMeta(position.moleculeId);
+      const moleculeType = meta ? meta.molecule.type : 'unknown';
 
       entities.push({
         moleculeId: position.moleculeId,
@@ -330,8 +407,8 @@ export class Complex {
 
       if (position.q === q && position.r === r) {
         const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
-        const entry = this._moleculeIndex.get(position.moleculeId);
-        const moleculeType = entry ? entry.molecule.type : 'unknown';
+        const meta = this._getMoleculeMeta(position.moleculeId);
+        const moleculeType = meta ? meta.molecule.type : 'unknown';
 
         return {
           moleculeId: position.moleculeId,
@@ -582,7 +659,7 @@ export class Complex {
    */
   calculateEnergy() {
     const bindings = this.findBindings();
-    return calculateEnergyECS(this.world, this._moleculeIndex, bindings);
+    return calculateEnergyECS(this.world, bindings);
   }
 
   // ===========================================================================
@@ -636,7 +713,7 @@ export class Complex {
       this.world.destroyEntity(entityId);
     }
 
-    this._createMoleculeEntities(entry);
+    this._createMoleculeEntities(entry.molecule, entry.offset, entry.direction);
   }
 
   // ===========================================================================
