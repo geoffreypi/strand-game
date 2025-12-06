@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { World } from './World.js';
 import { SystemScheduler } from './SystemScheduler.js';
+import { SystemProfiler } from './profiler.js';
 import { COMPONENT_TYPES, createPositionComponent, createResidueComponent } from './components.js';
 
 describe('SystemScheduler', () => {
@@ -351,6 +352,128 @@ describe('SystemScheduler', () => {
 
       expect(results.get('setup').created).toBe(3);
       expect(results.get('process').count).toBe(3);
+    });
+  });
+
+  describe('Profiler Integration', () => {
+    it('accepts profiler in constructor', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      expect(scheduler.getProfiler()).toBe(profiler);
+    });
+
+    it('works without profiler', () => {
+      const scheduler = new SystemScheduler(world);
+      expect(scheduler.getProfiler()).toBeNull();
+
+      scheduler.registerSystem('test', () => ({ success: true }));
+      const result = scheduler.runSystem('test');
+
+      expect(result.success).toBe(true);
+    });
+
+    it('can set profiler after construction', () => {
+      const profiler = new SystemProfiler();
+
+      scheduler.setProfiler(profiler);
+      expect(scheduler.getProfiler()).toBe(profiler);
+    });
+
+    it('can disable profiler by setting to null', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.setProfiler(null);
+      expect(scheduler.getProfiler()).toBeNull();
+    });
+
+    it('records system execution times', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.registerSystem('test', () => ({ done: true }));
+      scheduler.runSystem('test');
+
+      const stats = profiler.getSystemStats('test');
+      expect(stats).toBeDefined();
+      expect(stats.overall.executions).toBe(1);
+      expect(stats.recent.average).toBeGreaterThan(0);
+    });
+
+    it('records frame timing on tick', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.registerSystem('sys1', () => ({}));
+      scheduler.registerSystem('sys2', () => ({}));
+
+      scheduler.tick();
+
+      const frameStats = profiler.getFrameStats();
+      expect(frameStats.overall.frames).toBe(1);
+      expect(frameStats.recent.average).toBeGreaterThan(0);
+    });
+
+    it('records multiple systems per tick', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.registerSystem('sys1', () => ({}), { phase: 'init' });
+      scheduler.registerSystem('sys2', () => ({}), { phase: 'update' });
+      scheduler.registerSystem('sys3', () => ({}), { phase: 'render' });
+
+      scheduler.tick();
+
+      expect(profiler.getSystemStats('sys1')).toBeDefined();
+      expect(profiler.getSystemStats('sys2')).toBeDefined();
+      expect(profiler.getSystemStats('sys3')).toBeDefined();
+    });
+
+    it('records multiple ticks', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.registerSystem('test', () => ({}));
+
+      for (let i = 0; i < 5; i++) {
+        scheduler.tick();
+      }
+
+      const frameStats = profiler.getFrameStats();
+      expect(frameStats.overall.frames).toBe(5);
+
+      const systemStats = profiler.getSystemStats('test');
+      expect(systemStats.overall.executions).toBe(5);
+    });
+
+    it('handles system errors without breaking profiling', () => {
+      const profiler = new SystemProfiler();
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.registerSystem('errorSystem', () => {
+        throw new Error('Test error');
+      });
+
+      expect(() => {
+        scheduler.runSystem('errorSystem');
+      }).toThrow('Test error');
+
+      // Profiler should still have recorded the attempt
+      const stats = profiler.getSystemStats('errorSystem');
+      expect(stats).toBeDefined();
+      expect(stats.overall.executions).toBe(1);
+    });
+
+    it('profiling disabled when profiler is disabled', () => {
+      const profiler = new SystemProfiler({ enabled: false });
+      const scheduler = new SystemScheduler(world, { profiler });
+
+      scheduler.registerSystem('test', () => ({}));
+      scheduler.runSystem('test');
+
+      const stats = profiler.getSystemStats('test');
+      expect(stats).toBeNull();
     });
   });
 });

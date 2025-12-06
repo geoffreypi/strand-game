@@ -8,9 +8,12 @@
 export class SystemScheduler {
   /**
    * @param {World} world - The ECS world
+   * @param {Object} options - Configuration options
+   * @param {SystemProfiler} options.profiler - Optional performance profiler
    */
-  constructor(world) {
+  constructor(world, options = {}) {
     this.world = world;
+    this.profiler = options.profiler || null;
     this.systems = new Map(); // name -> {fn, phase, priority}
     this.phases = new Map(); // phaseName -> [systemNames...]
     this.systemOrder = []; // Ordered list of system names
@@ -79,7 +82,18 @@ export class SystemScheduler {
       throw new Error(`System '${name}' not registered`);
     }
 
-    return system.fn(this.world, context);
+    // Start profiling if enabled
+    const stopTimer = this.profiler ? this.profiler.startSystem(name) : null;
+
+    try {
+      const result = system.fn(this.world, context);
+      return result;
+    } finally {
+      // Stop profiling
+      if (stopTimer) {
+        stopTimer();
+      }
+    }
   }
 
   /**
@@ -117,17 +131,27 @@ export class SystemScheduler {
    * @returns {Map} Map of systemName -> result
    */
   tick(context = {}) {
-    const results = new Map();
+    // Start frame profiling if enabled
+    const stopFrameTimer = this.profiler ? this.profiler.startFrame() : null;
 
-    for (const systemName of this.systemOrder) {
-      const result = this.runSystem(systemName, context);
-      results.set(systemName, result);
+    try {
+      const results = new Map();
 
-      // If a system returns changed: false, we might want to short-circuit
-      // But for now, run all systems every tick
+      for (const systemName of this.systemOrder) {
+        const result = this.runSystem(systemName, context);
+        results.set(systemName, result);
+
+        // If a system returns changed: false, we might want to short-circuit
+        // But for now, run all systems every tick
+      }
+
+      return results;
+    } finally {
+      // Stop frame profiling
+      if (stopFrameTimer) {
+        stopFrameTimer();
+      }
     }
-
-    return results;
   }
 
   /**
@@ -178,5 +202,21 @@ export class SystemScheduler {
    */
   hasSystem(name) {
     return this.systems.has(name);
+  }
+
+  /**
+   * Set the performance profiler
+   * @param {SystemProfiler} profiler - Profiler instance or null to disable
+   */
+  setProfiler(profiler) {
+    this.profiler = profiler;
+  }
+
+  /**
+   * Get the performance profiler
+   * @returns {SystemProfiler|null}
+   */
+  getProfiler() {
+    return this.profiler;
   }
 }
