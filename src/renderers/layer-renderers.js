@@ -210,7 +210,7 @@ export function renderHeatmapLayer(entityData, worldState, options = {}) {
 
 /**
  * LAYER: Residues
- * Renders just the residue positions (no connectors)
+ * Renders just the residue positions (no connectors, no prefixes/suffixes)
  * @param {Array} entityData - Entity data
  * @param {Object} worldState - World state
  * @param {Object} options - Layer options
@@ -220,7 +220,7 @@ export function renderResiduesLayer(entityData, worldState, options = {}) {
   const canvas = new Map();
   const { molecules = new Map() } = worldState;
 
-  // Group by molecule to get prefixes/suffixes
+  // Group by molecule
   const moleculeEntities = new Map();
   for (const entity of entityData) {
     if (!moleculeEntities.has(entity.moleculeId)) {
@@ -229,7 +229,7 @@ export function renderResiduesLayer(entityData, worldState, options = {}) {
     moleculeEntities.get(entity.moleculeId).push(entity);
   }
 
-  // Render each molecule's residues
+  // Render each molecule's residues (just the codes, no prefixes/suffixes)
   for (const [moleculeId, molEntities] of moleculeEntities) {
     if (molEntities.length === 0) continue;
 
@@ -238,33 +238,14 @@ export function renderResiduesLayer(entityData, worldState, options = {}) {
     const molecule = molecules.get(moleculeId);
     const molType = molecule ? molecule.type : 'protein';
 
-    // Get prefixes/suffixes
-    const prefixes = { protein: 'N-', dna: '5\'-', rna: '5\'-', atp: '', other: '' };
-    const suffixes = { protein: '-C', dna: '-3\'', rna: '-3\'', atp: '', other: '' };
-    const prefix = prefixes[molType] || '';
-    const suffix = suffixes[molType] || '';
-
     // Render each residue
     for (let i = 0; i < molEntities.length; i++) {
       const entity = molEntities[i];
-      const isFirst = i === 0;
-      const isLast = i === molEntities.length - 1;
-
       const { row, col } = hexToCanvasCoords(entity.q, entity.r);
       const formattedType = formatEntityType(entity.type, molType);
 
-      // Write prefix if first
-      if (isFirst && prefix) {
-        writeText(canvas, row, col - prefix.length, prefix);
-      }
-
-      // Write residue
+      // Write residue only (no prefix/suffix)
       writeText(canvas, row, col, formattedType);
-
-      // Write suffix if last
-      if (isLast && suffix) {
-        writeText(canvas, row, col + formattedType.length, suffix);
-      }
     }
   }
 
@@ -273,7 +254,7 @@ export function renderResiduesLayer(entityData, worldState, options = {}) {
 
 /**
  * LAYER: Backbone
- * Renders primary structure connectors (dashes and bend characters)
+ * Renders primary structure connectors (dashes, bend characters, and directional markers)
  * @param {Array} entityData - Entity data
  * @param {Object} worldState - World state
  * @param {Object} options - Layer options
@@ -300,6 +281,27 @@ export function renderBackboneLayer(entityData, worldState, options = {}) {
 
     const molecule = molecules.get(moleculeId);
     const molType = molecule ? molecule.type : 'protein';
+
+    // Get prefixes/suffixes (directional markers)
+    const prefixes = { protein: 'N-', dna: '5\'-', rna: '5\'-', atp: '', other: '' };
+    const suffixes = { protein: '-C', dna: '-3\'', rna: '-3\'', atp: '', other: '' };
+    const prefix = prefixes[molType] || '';
+    const suffix = suffixes[molType] || '';
+
+    // Render prefix for first residue
+    if (molEntities.length > 0 && prefix) {
+      const firstEntity = molEntities[0];
+      const { row, col } = hexToCanvasCoords(firstEntity.q, firstEntity.r);
+      writeText(canvas, row, col - prefix.length, prefix);
+    }
+
+    // Render suffix for last residue
+    if (molEntities.length > 0 && suffix) {
+      const lastEntity = molEntities[molEntities.length - 1];
+      const { row, col } = hexToCanvasCoords(lastEntity.q, lastEntity.r);
+      const formattedType = formatEntityType(lastEntity.type, molType);
+      writeText(canvas, row, col + formattedType.length, suffix);
+    }
 
     // Draw connectors between consecutive residues
     for (let i = 0; i < molEntities.length - 1; i++) {
