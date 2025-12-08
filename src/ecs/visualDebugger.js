@@ -55,6 +55,53 @@ export class VisualDebugger {
       });
     }
 
+    // Capture residue state
+    const residueState = new Map();
+    const residueEntities = this.world.query([COMPONENT_TYPES.RESIDUE]);
+
+    for (const entityId of residueEntities) {
+      const residue = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+      residueState.set(entityId, {
+        type: residue.type,
+        foldState: residue.foldState,
+        index: residue.index
+      });
+    }
+
+    // Capture molecule metadata
+    const molecules = new Map();
+    const metaEntityIds = this.world.query([COMPONENT_TYPES.MOLECULE_META]);
+    for (const metaId of metaEntityIds) {
+      const meta = this.world.getComponent(metaId, COMPONENT_TYPES.MOLECULE_META);
+      molecules.set(meta.molecule.id, meta.molecule);
+    }
+
+    // Build complete entity data for rendering
+    const entities = [];
+    for (const entityId of this.world.entities) {
+      const entity = { entityId };
+
+      if (positionState.has(entityId)) {
+        Object.assign(entity, positionState.get(entityId));
+      }
+
+      if (residueState.has(entityId)) {
+        Object.assign(entity, residueState.get(entityId));
+      }
+
+      // Add signal data by residue index
+      if (residueState.has(entityId)) {
+        const residue = residueState.get(entityId);
+        if (signalState.has(residue.index)) {
+          entity.signal = signalState.get(residue.index);
+        }
+      }
+
+      if (Object.keys(entity).length > 1) {  // More than just entityId
+        entities.push(entity);
+      }
+    }
+
     this.history.push({
       step: this.history.length,
       label,
@@ -62,6 +109,9 @@ export class VisualDebugger {
       metadata,
       signalState,
       positionState,
+      residueState,
+      molecules,  // Molecule metadata for rendering
+      entities,  // Complete entity data for rendering
       entityCount: this.world.entities.size
     });
 
@@ -137,17 +187,20 @@ export class VisualDebugger {
       }
     }
 
-    // Try to render ASCII visualization if possible
+    // Render from snapshot data using real ASCII renderer
     try {
-      const rendering = ASCIIRenderer.renderWorld(this.world, {
-        showBindings: true,
+      const rendering = ASCIIRenderer.renderEntities(snapshot.entities, {
+        molecules: snapshot.molecules,
+        signals: snapshot.signalState,
+        showBindings: false,
         showSignals: true
       });
       console.log('\nVisualization:');
       console.log(rendering);
     } catch (err) {
-      // Rendering might fail if World is not set up properly
+      // Rendering might fail if snapshot doesn't have complete data
       console.log('\nVisualization: (unable to render)');
+      console.log(`Error: ${err.message}`);
     }
   }
 

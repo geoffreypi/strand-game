@@ -569,22 +569,26 @@ class ASCIIRenderer {
   // ===========================================================================
 
   /**
-   * Render a World (pure ECS approach)
-   * Queries World components directly for better performance
-   * @param {World} world - The ECS World to render
+   * Render entities from pre-built data (pure rendering function)
+   * This is the core rendering algorithm used by both renderWorld and snapshot rendering
+   * @param {Array} entityData - Array of entity objects with {entityId, q, r, type, index, moleculeId}
    * @param {Object} options - Rendering options
+   * @param {Map} options.molecules - Map of moleculeId -> molecule metadata {type, ...}
+   * @param {Map} options.signals - Map of residueIndex -> {on, source, strength}
+   * @param {Map} options.bindings - Map of residueIndex -> nucleotide type (for BTx bindings)
    * @param {boolean} options.showBindings - Whether to show binding indicators (default true)
    * @param {boolean} options.showSignals - Whether to show signal state (default true)
-   * @param {Map} options.bindings - Pre-computed bindings Map (optional)
    * @param {Object} options.prefixes - Custom prefixes per molecule type
    * @param {Object} options.suffixes - Custom suffixes per molecule type
    * @returns {string} ASCII rendering
    */
-  static renderWorld(world, options = {}) {
+  static renderEntities(entityData, options = {}) {
     const {
+      molecules = new Map(),
+      signals = new Map(),
+      bindings = null,
       showBindings = true,
       showSignals = true,
-      bindings = null,
       prefixes = {
         protein: 'N-',
         dna: '5\'-',
@@ -601,50 +605,17 @@ class ASCIIRenderer {
       }
     } = options;
 
-    // Import COMPONENT_TYPES dynamically to avoid circular dependencies
-    const COMPONENT_TYPES = {
-      POSITION: 'Position',
-      RESIDUE: 'Residue',
-      SIGNAL: 'Signal',
-      MOLECULE_META: 'MoleculeMeta'
-    };
-
     const canvas = new Map();
     const entityPositions = new Map(); // Track {q,r} -> entity for binding lookup
 
-    // Query all entities with Position and Residue components
-    const entityIds = world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
-
-    // Build entity data from components
-    const entities = [];
-    for (const entityId of entityIds) {
-      const position = world.getComponent(entityId, COMPONENT_TYPES.POSITION);
-      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
-
-      const entity = {
-        entityId,
-        q: position.q,
-        r: position.r,
-        moleculeId: position.moleculeId,
-        index: residue.index,
-        type: residue.type
-      };
-
-      entities.push(entity);
+    // Build entity position map
+    for (const entity of entityData) {
       entityPositions.set(`${entity.q},${entity.r}`, entity);
-    }
-
-    // Query molecule metadata to get molecule types
-    const moleculeMetas = new Map();
-    const metaEntityIds = world.query([COMPONENT_TYPES.MOLECULE_META]);
-    for (const metaId of metaEntityIds) {
-      const meta = world.getComponent(metaId, COMPONENT_TYPES.MOLECULE_META);
-      moleculeMetas.set(meta.molecule.id, meta.molecule);
     }
 
     // Group entities by molecule
     const moleculeEntities = new Map();
-    for (const entity of entities) {
+    for (const entity of entityData) {
       if (!moleculeEntities.has(entity.moleculeId)) {
         moleculeEntities.set(entity.moleculeId, []);
       }
@@ -659,7 +630,7 @@ class ASCIIRenderer {
       molEntities.sort((a, b) => a.index - b.index);
 
       // Get molecule type
-      const molecule = moleculeMetas.get(moleculeId);
+      const molecule = molecules.get(moleculeId);
       const molType = molecule ? molecule.type : 'protein';
 
       // Get prefix/suffix for this molecule type
@@ -679,15 +650,89 @@ class ASCIIRenderer {
 
     // Render bindings if requested
     if (showBindings && bindings) {
-      this.renderBindingsOnCanvas(canvas, bindings, entities, entityPositions);
+      this.renderBindingsOnCanvas(canvas, bindings, entityData, entityPositions);
     }
 
     // Render signal states if requested
-    if (showSignals) {
-      this.renderSignalsOnCanvas(canvas, world, entities, COMPONENT_TYPES);
+    if (showSignals && signals && signals.size > 0) {
+      this.renderSignalsFromData(canvas, entityData, signals);
     }
 
     return this.canvasToString(canvas);
+  }
+
+  /**
+   * Render a World (pure ECS approach)
+   * Queries World components directly for better performance
+   * @param {World} world - The ECS World to render
+   * @param {Object} options - Rendering options
+   * @param {boolean} options.showBindings - Whether to show binding indicators (default true)
+   * @param {boolean} options.showSignals - Whether to show signal state (default true)
+   * @param {Map} options.bindings - Pre-computed bindings Map (optional)
+   * @param {Object} options.prefixes - Custom prefixes per molecule type
+   * @param {Object} options.suffixes - Custom suffixes per molecule type
+   * @returns {string} ASCII rendering
+   */
+  static renderWorld(world, options = {}) {
+    // Import COMPONENT_TYPES dynamically to avoid circular dependencies
+    const COMPONENT_TYPES = {
+      POSITION: 'Position',
+      RESIDUE: 'Residue',
+      SIGNAL: 'Signal',
+      MOLECULE_META: 'MoleculeMeta'
+    };
+
+    // Query all entities with Position and Residue components
+    const entityIds = world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
+
+    // Build entity data from components
+    const entityData = [];
+    for (const entityId of entityIds) {
+      const position = world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      entityData.push({
+        entityId,
+        q: position.q,
+        r: position.r,
+        moleculeId: position.moleculeId,
+        index: residue.index,
+        type: residue.type
+      });
+    }
+
+    // Query molecule metadata to get molecule types
+    const molecules = new Map();
+    const metaEntityIds = world.query([COMPONENT_TYPES.MOLECULE_META]);
+    for (const metaId of metaEntityIds) {
+      const meta = world.getComponent(metaId, COMPONENT_TYPES.MOLECULE_META);
+      molecules.set(meta.molecule.id, meta.molecule);
+    }
+
+    // Query signal states
+    const signals = new Map();
+    const signaledEntityIds = world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
+    for (const entityId of signaledEntityIds) {
+      const signal = world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
+      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      signals.set(residue.index, {
+        on: signal.on,
+        source: signal.source,
+        strength: signal.strength
+      });
+    }
+
+    // Call renderEntities with the queried data
+    return this.renderEntities(entityData, {
+      molecules,
+      signals,
+      bindings: options.bindings,
+      showBindings: options.showBindings,
+      showSignals: options.showSignals,
+      prefixes: options.prefixes,
+      suffixes: options.suffixes
+    });
   }
 
   /**
@@ -805,26 +850,19 @@ class ASCIIRenderer {
   }
 
   /**
-   * Render signal states on canvas
+   * Render signal states from pre-built data (pure function)
    * Shows '*' indicator above signaled (ON) residues
    * @param {Map} canvas - The rendering canvas
-   * @param {World} world - The ECS World
-   * @param {Array} entities - All entities in the complex
-   * @param {Object} COMPONENT_TYPES - Component type constants
+   * @param {Array} entityData - Array of entities
+   * @param {Map} signals - Map of residueIndex -> {on, source, strength}
    */
-  static renderSignalsOnCanvas(canvas, world, entities, COMPONENT_TYPES) {
-    // Query all entities with Signal component
-    const signaledEntityIds = world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
-
-    for (const entityId of signaledEntityIds) {
-      const signal = world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
-      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
-
+  static renderSignalsFromData(canvas, entityData, signals) {
+    for (const [residueIndex, signalState] of signals) {
       // Only show indicator if signal is ON
-      if (!signal.on) continue;
+      if (!signalState.on) continue;
 
-      // Find the entity position
-      const entity = entities.find(e => e.index === residue.index);
+      // Find the entity with this residue index
+      const entity = entityData.find(e => e.index === residueIndex);
       if (!entity) continue;
 
       // Get canvas coordinates
@@ -840,6 +878,34 @@ class ASCIIRenderer {
         this.writeText(canvas, indicatorRow, centerCol, '*');
       }
     }
+  }
+
+  /**
+   * Render signal states on canvas (queries World)
+   * This is kept for backward compatibility but internally uses renderSignalsFromData
+   * @param {Map} canvas - The rendering canvas
+   * @param {World} world - The ECS World
+   * @param {Array} entities - All entities in the complex
+   * @param {Object} COMPONENT_TYPES - Component type constants
+   */
+  static renderSignalsOnCanvas(canvas, world, entities, COMPONENT_TYPES) {
+    // Query signal states from World
+    const signals = new Map();
+    const signaledEntityIds = world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
+
+    for (const entityId of signaledEntityIds) {
+      const signal = world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
+      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      signals.set(residue.index, {
+        on: signal.on,
+        source: signal.source,
+        strength: signal.strength
+      });
+    }
+
+    // Delegate to pure function
+    this.renderSignalsFromData(canvas, entities, signals);
   }
 
 }
