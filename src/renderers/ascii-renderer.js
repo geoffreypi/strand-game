@@ -3,6 +3,15 @@
 // This version uses the hex layout algorithm for unlimited bend support
 
 import { sequenceToHexGrid, dnaToHexGrid, getNeighbors } from '../core/hex-layout.js';
+import { LayerManager, Layer, composeLayers, canvasToString as layeredCanvasToString } from './layered-renderer.js';
+import {
+  renderHeatmapLayer,
+  renderResiduesLayer,
+  renderBackboneLayer,
+  renderIntraBondsLayer,
+  renderInterBondsLayer,
+  renderSignalsLayer
+} from './layer-renderers.js';
 
 class ASCIIRenderer {
 
@@ -906,6 +915,180 @@ class ASCIIRenderer {
 
     // Delegate to pure function
     this.renderSignalsFromData(canvas, entities, signals);
+  }
+
+  // ===========================================================================
+  // LAYERED RENDERING SYSTEM
+  // ===========================================================================
+
+  /**
+   * Create a default layer manager with standard layers
+   * @param {Object} options - Layer configuration options
+   * @param {boolean} options.enableHeatmap - Enable heatmap layer (default: false)
+   * @param {Object} options.heatmapOptions - Heatmap configuration
+   * @param {boolean} options.enableResidues - Enable residue layer (default: true)
+   * @param {boolean} options.enableBackbone - Enable backbone layer (default: true)
+   * @param {boolean} options.enableIntraBonds - Enable intramolecular bonds (default: true)
+   * @param {boolean} options.enableInterBonds - Enable intermolecular bonds (default: true)
+   * @param {boolean} options.enableSignals - Enable signals layer (default: true)
+   * @param {boolean} options.useSignalInversion - Use inverted colors for signals (default: false)
+   * @returns {LayerManager} Configured layer manager
+   */
+  static createDefaultLayerManager(options = {}) {
+    const {
+      enableHeatmap = false,
+      heatmapOptions = {},
+      enableResidues = true,
+      enableBackbone = true,
+      enableIntraBonds = true,
+      enableInterBonds = true,
+      enableSignals = true,
+      useSignalInversion = false
+    } = options;
+
+    const manager = new LayerManager();
+
+    // Layer 0: Heatmap (dense, lowest z-index)
+    if (enableHeatmap) {
+      manager.addLayer(new Layer(
+        'heatmap',
+        (entityData, worldState) => renderHeatmapLayer(entityData, worldState, heatmapOptions),
+        { zIndex: 0, dense: true, enabled: enableHeatmap }
+      ));
+    }
+
+    // Layer 1: Residues (sparse)
+    manager.addLayer(new Layer(
+      'residues',
+      renderResiduesLayer,
+      { zIndex: 1, dense: false, enabled: enableResidues }
+    ));
+
+    // Layer 2: Backbone (sparse)
+    manager.addLayer(new Layer(
+      'backbone',
+      renderBackboneLayer,
+      { zIndex: 2, dense: false, enabled: enableBackbone }
+    ));
+
+    // Layer 3: Intramolecular bonds (sparse)
+    manager.addLayer(new Layer(
+      'intramolecular_bonds',
+      renderIntraBondsLayer,
+      { zIndex: 3, dense: false, enabled: enableIntraBonds }
+    ));
+
+    // Layer 4: Intermolecular bonds (sparse)
+    manager.addLayer(new Layer(
+      'intermolecular_bonds',
+      renderInterBondsLayer,
+      { zIndex: 4, dense: false, enabled: enableInterBonds }
+    ));
+
+    // Layer 5: Signals (sparse, highest z-index)
+    manager.addLayer(new Layer(
+      'signals',
+      (entityData, worldState) => renderSignalsLayer(entityData, worldState, { useInversion: useSignalInversion }),
+      { zIndex: 5, dense: false, enabled: enableSignals }
+    ));
+
+    return manager;
+  }
+
+  /**
+   * Render World using layered rendering system
+   * @param {World} world - The ECS World
+   * @param {Object} options - Rendering options
+   * @param {LayerManager} options.layerManager - Custom layer manager (optional)
+   * @param {boolean} options.useColor - Output ANSI color codes (default: false)
+   * @param {Object} options.layerOptions - Options for default layer manager
+   * @returns {string} ASCII rendering
+   */
+  static renderWorldLayered(world, options = {}) {
+    // Import COMPONENT_TYPES dynamically
+    const COMPONENT_TYPES = {
+      POSITION: 'Position',
+      RESIDUE: 'Residue',
+      SIGNAL: 'Signal',
+      MOLECULE_META: 'MoleculeMeta'
+    };
+
+    // Query entity data
+    const entityIds = world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
+    const entityData = [];
+    for (const entityId of entityIds) {
+      const position = world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      entityData.push({
+        entityId,
+        q: position.q,
+        r: position.r,
+        moleculeId: position.moleculeId,
+        index: residue.index,
+        type: residue.type
+      });
+    }
+
+    // Query molecule metadata
+    const molecules = new Map();
+    const metaEntityIds = world.query([COMPONENT_TYPES.MOLECULE_META]);
+    for (const metaId of metaEntityIds) {
+      const meta = world.getComponent(metaId, COMPONENT_TYPES.MOLECULE_META);
+      molecules.set(meta.molecule.id, meta.molecule);
+    }
+
+    // Query signal states
+    const signals = new Map();
+    const signaledEntityIds = world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
+    for (const entityId of signaledEntityIds) {
+      const signal = world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
+      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      signals.set(residue.index, {
+        on: signal.on,
+        source: signal.source,
+        strength: signal.strength
+      });
+    }
+
+    // Get bindings (if requested)
+    const bindings = options.bindings || null;
+
+    const worldState = {
+      molecules,
+      signals,
+      bindings
+    };
+
+    // Get or create layer manager
+    const layerManager = options.layerManager || this.createDefaultLayerManager(options.layerOptions || {});
+
+    // Compose layers
+    const canvas = composeLayers(layerManager.getSortedLayers(), entityData, worldState);
+
+    // Convert to string
+    const useColor = options.useColor !== undefined ? options.useColor : false;
+    return layeredCanvasToString(canvas, useColor);
+  }
+
+  /**
+   * Render Complex using layered rendering system
+   * @param {Complex} complex - The Complex to render
+   * @param {Object} options - Rendering options
+   * @param {LayerManager} options.layerManager - Custom layer manager (optional)
+   * @param {boolean} options.useColor - Output ANSI color codes (default: false)
+   * @param {boolean} options.showBindings - Include bindings in rendering (default: true)
+   * @param {Object} options.layerOptions - Options for default layer manager
+   * @returns {string} ASCII rendering
+   */
+  static renderComplexLayered(complex, options = {}) {
+    const bindings = options.showBindings !== false ? complex.findBindings() : null;
+
+    return this.renderWorldLayered(complex.world, {
+      ...options,
+      bindings
+    });
   }
 
 }
