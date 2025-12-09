@@ -14,6 +14,7 @@
  */
 
 import { AMINO_ACID_TYPES } from '../data/amino-acids.js';
+import { validateSequence } from '../ecs/systems/nucleotideValidationSystem.js';
 
 export class Molecule {
   /**
@@ -21,6 +22,7 @@ export class Molecule {
    * @param {string[]} sequence - Array of residue/nucleotide codes
    * @param {Object} options - Optional configuration
    * @param {number[]} options.foldStates - Initial fold states (defaults to all 0)
+   * @param {Array} options.bends - Bend specifications [{position, angle, direction}]
    * @param {string} options.type - Molecule type: 'protein', 'dna', 'rna', 'other'
    * @param {string} options.id - Optional unique identifier
    */
@@ -30,9 +32,15 @@ export class Molecule {
     }
 
     this.sequence = [...sequence]; // Copy to prevent external mutation
-    this.foldStates = options.foldStates
-      ? [...options.foldStates]
-      : new Array(sequence.length).fill(0);
+
+    // Convert bends to foldStates if provided, otherwise use foldStates or default to 0
+    if (options.bends && Array.isArray(options.bends)) {
+      this.foldStates = this._bendsToFoldStates(options.bends, sequence.length);
+    } else {
+      this.foldStates = options.foldStates
+        ? [...options.foldStates]
+        : new Array(sequence.length).fill(0);
+    }
 
     if (this.foldStates.length !== sequence.length) {
       throw new Error('foldStates length must match sequence length');
@@ -40,6 +48,42 @@ export class Molecule {
 
     this.type = options.type ?? this._inferType(sequence);
     this.id = options.id ?? `mol_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /**
+   * Convert bends array to foldStates array
+   * @private
+   * @param {Array} bends - [{position, angle, direction}]
+   * @param {number} length - Sequence length
+   * @returns {number[]} foldStates array
+   */
+  _bendsToFoldStates(bends, length) {
+    const foldStates = new Array(length).fill(0);
+
+    for (const bend of bends) {
+      const { position, angle, direction } = bend;
+
+      if (position < 0 || position >= length - 1) {
+        throw new Error(`Invalid bend position ${position} for sequence of length ${length}`);
+      }
+
+      if (![60, 120].includes(angle)) {
+        throw new Error(`Invalid bend angle ${angle}. Must be 60 or 120.`);
+      }
+
+      if (!['left', 'right'].includes(direction)) {
+        throw new Error(`Invalid bend direction "${direction}". Must be "left" or "right".`);
+      }
+
+      // Convert to fold state:
+      // - Positive = left bend
+      // - Negative = right bend
+      // - Magnitude = angle / 60
+      const steps = angle / 60;
+      foldStates[position] = direction === 'left' ? steps : -steps;
+    }
+
+    return foldStates;
   }
 
   /**
@@ -167,8 +211,12 @@ export class Molecule {
    * @param {string} sequence - e.g., "ACGT" or "A-C-G-T"
    * @param {Object} options
    * @returns {Molecule}
+   * @throws {Error} If sequence contains invalid nucleotides (must be A, C, G, T)
    */
   static createDNA(sequence, options = {}) {
+    // Validate sequence before creating molecule
+    validateSequence(sequence, 'dna');
+
     const seq = sequence.includes('-')
       ? sequence.split('-')
       : sequence.split('');
@@ -180,8 +228,12 @@ export class Molecule {
    * @param {string} sequence - e.g., "ACGU"
    * @param {Object} options
    * @returns {Molecule}
+   * @throws {Error} If sequence contains invalid nucleotides (must be A, C, G, U)
    */
   static createRNA(sequence, options = {}) {
+    // Validate sequence before creating molecule
+    validateSequence(sequence, 'rna');
+
     const seq = sequence.includes('-')
       ? sequence.split('-')
       : sequence.split('');

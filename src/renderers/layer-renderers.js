@@ -7,6 +7,7 @@
 
 import { getNeighbors } from '../core/hex-layout.js';
 import { createCell, writeText } from './layered-renderer.js';
+import { canSignal } from '../data/amino-acids.js';
 
 /**
  * Convert hex coordinates (q, r) to absolute canvas position (row, col)
@@ -253,14 +254,14 @@ export function renderResiduesLayer(entityData, worldState, options = {}) {
 }
 
 /**
- * LAYER: Backbone
- * Renders primary structure connectors (dashes, bend characters, and directional markers)
+ * LAYER: Labels
+ * Renders directional markers (N-/C for proteins, 5'-/3' for DNA/RNA)
  * @param {Array} entityData - Entity data
  * @param {Object} worldState - World state
  * @param {Object} options - Layer options
  * @returns {Map} Canvas
  */
-export function renderBackboneLayer(entityData, worldState, options = {}) {
+export function renderLabelsLayer(entityData, worldState, options = {}) {
   const canvas = new Map();
   const { molecules = new Map() } = worldState;
 
@@ -273,7 +274,7 @@ export function renderBackboneLayer(entityData, worldState, options = {}) {
     moleculeEntities.get(entity.moleculeId).push(entity);
   }
 
-  // Render backbone for each molecule
+  // Render labels for each molecule
   for (const [moleculeId, molEntities] of moleculeEntities) {
     if (molEntities.length === 0) continue;
 
@@ -302,6 +303,40 @@ export function renderBackboneLayer(entityData, worldState, options = {}) {
       const formattedType = formatEntityType(lastEntity.type, molType);
       writeText(canvas, row, col + formattedType.length, suffix);
     }
+  }
+
+  return canvas;
+}
+
+/**
+ * LAYER: Backbone
+ * Renders primary structure connectors (dashes and bend characters)
+ * @param {Array} entityData - Entity data
+ * @param {Object} worldState - World state
+ * @param {Object} options - Layer options
+ * @returns {Map} Canvas
+ */
+export function renderBackboneLayer(entityData, worldState, options = {}) {
+  const canvas = new Map();
+  const { molecules = new Map() } = worldState;
+
+  // Group by molecule
+  const moleculeEntities = new Map();
+  for (const entity of entityData) {
+    if (!moleculeEntities.has(entity.moleculeId)) {
+      moleculeEntities.set(entity.moleculeId, []);
+    }
+    moleculeEntities.get(entity.moleculeId).push(entity);
+  }
+
+  // Render connectors for each molecule
+  for (const [moleculeId, molEntities] of moleculeEntities) {
+    if (molEntities.length === 0) continue;
+
+    molEntities.sort((a, b) => a.index - b.index);
+
+    const molecule = molecules.get(moleculeId);
+    const molType = molecule ? molecule.type : 'protein';
 
     // Draw connectors between consecutive residues
     for (let i = 0; i < molEntities.length - 1; i++) {
@@ -407,10 +442,6 @@ export function renderInterBondsLayer(entityData, worldState, options = {}) {
   const canvas = new Map();
   const { bindings = new Map() } = worldState;
 
-  if (!bindings || bindings.size === 0) {
-    return canvas;
-  }
-
   // Build entity position map
   const entityPositions = new Map();
   for (const entity of entityData) {
@@ -418,22 +449,24 @@ export function renderInterBondsLayer(entityData, worldState, options = {}) {
   }
 
   // Render BTx bindings
-  for (const [residueIndex, nucleotideType] of bindings) {
-    const btxEntity = entityData.find(e => e.index === residueIndex && e.type.startsWith('BT'));
-    if (!btxEntity) continue;
+  if (bindings && bindings.size > 0) {
+    for (const [residueIndex, nucleotideType] of bindings) {
+      const btxEntity = entityData.find(e => e.index === residueIndex && e.type.startsWith('BT'));
+      if (!btxEntity) continue;
 
-    // Find adjacent nucleotide
-    const neighbors = getNeighbors(btxEntity.q, btxEntity.r);
-    for (const neighbor of neighbors) {
-      const neighborEntity = entityPositions.get(`${neighbor.q},${neighbor.r}`);
-      if (!neighborEntity) continue;
+      // Find adjacent nucleotide
+      const neighbors = getNeighbors(btxEntity.q, btxEntity.r);
+      for (const neighbor of neighbors) {
+        const neighborEntity = entityPositions.get(`${neighbor.q},${neighbor.r}`);
+        if (!neighborEntity) continue;
 
-      // Check if this neighbor is the bound nucleotide
-      if (neighborEntity.type === nucleotideType ||
+        // Check if this neighbor is the bound nucleotide
+        if (neighborEntity.type === nucleotideType ||
           (nucleotideType === 'U' && neighborEntity.type === 'T')) {
         // Draw '+' between them
-        renderBondBetween(canvas, btxEntity, neighborEntity, '+');
-        break;
+          renderBondBetween(canvas, btxEntity, neighborEntity, '+');
+          break;
+        }
       }
     }
   }
@@ -476,51 +509,44 @@ function renderBondBetween(canvas, hex1, hex2, bondChar) {
 
 /**
  * LAYER: Signals
- * Renders signal indicators (stars above active residues or inverted colors)
+ * Renders ALL signal-capable residues (SIG, AND, NOT, PSH, INP, OUT, etc.)
+ * Activated residues shown with inverted colors (white bg, black fg)
  * @param {Array} entityData - Entity data
  * @param {Object} worldState - World state
  * @param {Object} options - Layer options
- * @param {boolean} options.useInversion - Use inverted colors instead of stars (default: false)
  * @returns {Map} Canvas
  */
 export function renderSignalsLayer(entityData, worldState, options = {}) {
   const canvas = new Map();
-  const { signals = new Map() } = worldState;
-  const { useInversion = false } = options;
+  const { signals = new Map(), molecules = new Map() } = worldState;
 
-  if (!signals || signals.size === 0) {
-    return canvas;
-  }
-
-  for (const [residueIndex, signalState] of signals) {
-    if (!signalState.on) continue;
-
-    const entity = entityData.find(e => e.index === residueIndex);
-    if (!entity) continue;
+  // Render all signal-capable residues
+  for (const entity of entityData) {
+    // Check if this residue type can participate in signaling
+    if (!canSignal(entity.type)) continue;
 
     const { row, col } = hexToCanvasCoords(entity.q, entity.r);
+    const molecule = molecules.get(entity.moleculeId);
+    const molType = molecule ? molecule.type : 'protein';
+    const formattedType = formatEntityType(entity.type, molType);
 
-    if (useInversion) {
-      // Render with inverted colors (render the whole residue)
-      const { molecules = new Map() } = worldState;
-      const molecule = molecules.get(entity.moleculeId);
-      const molType = molecule ? molecule.type : 'protein';
-      const formattedType = formatEntityType(entity.type, molType);
+    // Check if this residue is activated
+    const signalState = signals.get(entity.index);
+    const isActivated = signalState && signalState.on;
 
-      // Inverted: white background, black text
-      for (let i = 0; i < formattedType.length; i++) {
-        const key = `${row},${col + i}`;
+    // Render residue - inverted colors if activated, normal if not
+    for (let i = 0; i < formattedType.length; i++) {
+      const key = `${row},${col + i}`;
+      if (isActivated) {
+        // Activated: white background, black text
         canvas.set(key, createCell(formattedType[i], {
           fg: [0, 0, 0],
           bg: [255, 255, 255]
         }));
+      } else {
+        // Not activated: just render the character (will show in default color)
+        canvas.set(key, createCell(formattedType[i]));
       }
-    } else {
-      // Render star above residue
-      const centerCol = col + 1; // Center of 3-char element
-      const indicatorRow = row - 1;
-
-      writeText(canvas, indicatorRow, centerCol, '*');
     }
   }
 

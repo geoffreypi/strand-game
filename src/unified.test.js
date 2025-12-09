@@ -1,6 +1,8 @@
 import { describe, test, expect } from '@jest/globals';
 import { sequenceToHexGrid, dnaToHexGrid, applyBend, moveInDirection, getNeighbors, hexManhattanDistance, hexEuclideanDistance } from './core/hex-layout.js';
 import ASCIIRenderer from './renderers/ascii-renderer.js';
+import { Complex } from './core/complex.js';
+import { Molecule } from './core/molecule.js';
 
 describe('Unified Molecular Rendering Tests', () => {
 
@@ -263,56 +265,37 @@ describe('Unified Molecular Rendering Tests', () => {
   });
 
   // ===========================================================================
-  // DNA WITH BENDS - ASCII RENDERING
+  // DNA RENDERING (using layered renderer with Complex)
   // ===========================================================================
 
-  describe('DNA with bends (ASCII rendering)', () => {
-    test('renders straight DNA with both strands', () => {
-      const ascii = ASCIIRenderer.renderDNAWithBends('AT', 'TA', []);
+  describe('DNA rendering (layered renderer)', () => {
+    test('renders straight DNA strand', () => {
+      const complex = Complex.fromDNA('AT');
+      const ascii = ASCIIRenderer.renderComplexLayered(complex);
 
-      // Should have both strands with gap between them
       expect(ascii).toContain('5\'-<A>-<T>-3\'');
-      expect(ascii).toContain('3\'-<T>-<A>-5\'');
     });
 
     test('renders DNA with 60° right bend', () => {
-      const ascii = ASCIIRenderer.renderDNAWithBends('ACGTACG', 'TGCATGC', [
-        { position: 2, angle: 60, direction: 'right' }
-      ]);
+      const complex = Complex.fromDNA('ACGT', {
+        bends: [{ position: 1, angle: 60, direction: 'right' }]
+      });
+      const ascii = ASCIIRenderer.renderComplexLayered(complex);
 
-      // Should have both strands
       expect(ascii).toContain('5\'-');
-      expect(ascii).toContain('3\'-');
       expect(ascii).toContain('-3\'');
-      expect(ascii).toContain('-5\'');
-
-      // Should contain backslashes for southeast bends
-      expect(ascii).toContain('\\');
+      expect(ascii).toContain('\\'); // Bend character
     });
 
     test('renders DNA with 60° left bend', () => {
-      const ascii = ASCIIRenderer.renderDNAWithBends('ACGTACG', 'TGCATGC', [
-        { position: 2, angle: 60, direction: 'left' }
-      ]);
+      const complex = Complex.fromDNA('ACGT', {
+        bends: [{ position: 1, angle: 60, direction: 'left' }]
+      });
+      const ascii = ASCIIRenderer.renderComplexLayered(complex);
 
-      // Should have both strands
       expect(ascii).toContain('5\'-');
-      expect(ascii).toContain('3\'-');
-
-      // Should contain forward slashes for northeast bends
-      expect(ascii).toContain('/');
-    });
-
-    test('returns error for non-complementary bases', () => {
-      const ascii = ASCIIRenderer.renderDNAWithBends('ACGT', 'ACGT', []);
-      expect(ascii).toContain('ERROR');
-      expect(ascii).toContain('complementary');
-    });
-
-    test('returns error for invalid bases', () => {
-      const ascii = ASCIIRenderer.renderDNAWithBends('ACXGT', 'TGXCA', []);
-      expect(ascii).toContain('ERROR');
-      expect(ascii).toContain('Invalid base');
+      expect(ascii).toContain('-3\'');
+      expect(ascii).toContain('/'); // Bend character
     });
   });
 
@@ -917,14 +900,22 @@ describe('Unified Molecular Rendering Tests', () => {
       expect(result).toBe(expected);
     });
 
-    test('returns error for invalid bend position (negative)', () => {
-      const result = ASCIIRenderer.renderRNAWithBend('ACGUA', -1);
-      expect(result).toBe('ERROR: Invalid bend position');
+    test('throws error for invalid bend position (negative)', () => {
+      expect(() => {
+        Complex.fromDNA('ACGTA', { bends: [{ position: -1, angle: 60, direction: 'right' }] });
+      }).toThrow('Invalid bend position');
     });
 
-    test('returns error for invalid bend position (too large)', () => {
-      const result = ASCIIRenderer.renderRNAWithBend('ACGUA', 5);
-      expect(result).toBe('ERROR: Invalid bend position');
+    test('throws error for invalid bend position (too large)', () => {
+      expect(() => {
+        Complex.fromDNA('ACGTA', { bends: [{ position: 5, angle: 60, direction: 'right' }] });
+      }).toThrow('Invalid bend position');
+    });
+
+    test('throws error for invalid DNA bases', () => {
+      expect(() => {
+        Molecule.createDNA('ACXGT');
+      }).toThrow('Invalid DNA base');
     });
 
     test('renders RNA with bend using wrapped base notation', () => {
@@ -1326,9 +1317,10 @@ describe('Unified Molecular Rendering Tests', () => {
   // ===========================================================================
 
   describe('Protein error handling', () => {
-    test('returns error for invalid protein bend position', () => {
-      const result = ASCIIRenderer.renderProteinWithBend('STR-L60', -1, 60);
-      expect(result).toBe('ERROR: Invalid bend position');
+    test('throws error for invalid protein bend position', () => {
+      expect(() => {
+        Complex.fromProtein('STR-L60', { bends: [{ position: -1, angle: 60, direction: 'right' }] });
+      }).toThrow('Invalid bend position');
     });
   });
 
@@ -1510,7 +1502,7 @@ describe('Unified Molecular Rendering Tests', () => {
     // WHY: Basic complex rendering
     test('renders single protein complex', () => {
       const complex = Complex.fromProtein('STR-SIG-BTA');
-      const result = ASCIIRenderer.renderComplex(complex);
+      const result = ASCIIRenderer.renderComplexLayered(complex);
 
       expect(result).toContain('N-');
       expect(result).toContain('-C');
@@ -1527,7 +1519,7 @@ describe('Unified Molecular Rendering Tests', () => {
       complex.addMolecule(Molecule.createProtein('STR-BTA'), { offset: { q: 0, r: 0 } });
       complex.addMolecule(Molecule.createDNA('AT'), { offset: { q: 0, r: 2 } });
 
-      const result = ASCIIRenderer.renderComplex(complex);
+      const result = ASCIIRenderer.renderComplexLayered(complex);
 
       // Should have protein markers
       expect(result).toContain('N-');
@@ -1554,7 +1546,7 @@ describe('Unified Molecular Rendering Tests', () => {
       complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
       complex.addMolecule(dna, { offset: { q: 1, r: 1 } });
 
-      const result = ASCIIRenderer.renderComplex(complex);
+      const result = ASCIIRenderer.renderComplexLayered(complex);
 
       // Should contain binding indicator
       expect(result).toContain('+');
@@ -1572,7 +1564,7 @@ describe('Unified Molecular Rendering Tests', () => {
       complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
       complex.addMolecule(dna, { offset: { q: 10, r: 10 } });
 
-      const result = ASCIIRenderer.renderComplex(complex);
+      const result = ASCIIRenderer.renderComplexLayered(complex);
 
       // Should NOT contain binding indicator
       expect(result).not.toContain('+');
@@ -1585,7 +1577,7 @@ describe('Unified Molecular Rendering Tests', () => {
       const complex = Complex.fromProtein('STR-SIG');
       complex.addMolecule(Molecule.createATP(), { offset: { q: 5, r: 0 } });
 
-      const result = ASCIIRenderer.renderComplex(complex);
+      const result = ASCIIRenderer.renderComplexLayered(complex);
 
       expect(result).toContain('ATP');
       expect(result).not.toContain('[ATP]'); // No brackets
@@ -1600,7 +1592,7 @@ describe('Unified Molecular Rendering Tests', () => {
       // Adjacent hex SE is at (1, 1)
       complex.addMolecule(Molecule.createATP(), { offset: { q: 1, r: 1 } });
 
-      const result = ASCIIRenderer.renderComplex(complex);
+      const result = ASCIIRenderer.renderComplexLayered(complex);
 
       expect(result).toContain('ATR');
       expect(result).toContain('ATP');
@@ -1618,7 +1610,7 @@ describe('Unified Molecular Rendering Tests', () => {
       complex.addMolecule(protein, { offset: { q: 0, r: 0 } });
       complex.addMolecule(dna, { offset: { q: 1, r: 1 } });
 
-      const result = ASCIIRenderer.renderComplex(complex, { showBindings: false });
+      const result = ASCIIRenderer.renderComplexLayered(complex, { layerOptions: { enableInterBonds: false } });
 
       expect(result).not.toContain('+');
     });

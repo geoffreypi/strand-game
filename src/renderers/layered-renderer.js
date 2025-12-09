@@ -24,14 +24,12 @@ export class Layer {
    * @param {Function} renderFn - Function(entityData, worldState) => Map<string, CanvasCell>
    * @param {Object} options - Layer options
    * @param {number} options.zIndex - Rendering order (lower renders first)
-   * @param {boolean} options.dense - If true, layer fills all positions (default: false)
    * @param {boolean} options.enabled - If true, layer is rendered (default: true)
    */
   constructor(name, renderFn, options = {}) {
     this.name = name;
     this.renderFn = renderFn;
     this.zIndex = options.zIndex !== undefined ? options.zIndex : 0;
-    this.dense = options.dense || false;
     this.enabled = options.enabled !== undefined ? options.enabled : true;
   }
 
@@ -196,8 +194,7 @@ export class LayerManager {
     return this.layers.map(l => ({
       name: l.name,
       zIndex: l.zIndex,
-      enabled: l.enabled,
-      dense: l.dense
+      enabled: l.enabled
     }));
   }
 }
@@ -222,22 +219,12 @@ export function composeLayers(layers, entityData, worldState) {
   }));
 
   // Composite from back to front
+  // Higher z-index layers overwrite lower z-index layers
   const finalCanvas = new Map();
 
   for (const { layer, canvas } of layerCanvases) {
     for (const [pos, cell] of canvas) {
-      const existing = finalCanvas.get(pos);
-
-      if (layer.dense) {
-        // Dense layers always overwrite
-        finalCanvas.set(pos, cell);
-      } else if (!existing || existing.char === ' ') {
-        // Sparse layers write to empty positions
-        finalCanvas.set(pos, cell);
-      } else {
-        // Sparse layer writing to occupied position: overwrite
-        finalCanvas.set(pos, cell);
-      }
+      finalCanvas.set(pos, cell);
     }
   }
 

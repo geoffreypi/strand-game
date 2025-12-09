@@ -7,6 +7,7 @@ import { LayerManager, Layer, composeLayers, canvasToString as layeredCanvasToSt
 import {
   renderHeatmapLayer,
   renderResiduesLayer,
+  renderLabelsLayer,
   renderBackboneLayer,
   renderIntraBondsLayer,
   renderInterBondsLayer,
@@ -745,27 +746,6 @@ class ASCIIRenderer {
   }
 
   /**
-   * Render a Complex with all its molecules and inter-molecular bindings
-   * This is a convenience wrapper around renderWorld()
-   * @param {Complex} complex - The Complex to render
-   * @param {Object} options - Rendering options
-   * @param {boolean} options.showBindings - Whether to show binding indicators (default true)
-   * @param {boolean} options.showSignals - Whether to show signal state (default true)
-   * @param {Object} options.prefixes - Custom prefixes per molecule type {protein: 'N-', dna: '5\'-', ...}
-   * @param {Object} options.suffixes - Custom suffixes per molecule type {protein: '-C', dna: '-3\'', ...}
-   * @returns {string} ASCII rendering
-   */
-  static renderComplex(complex, options = {}) {
-    // Delegate to renderWorld (pure ECS approach)
-    const bindings = options.showBindings !== false ? complex.findBindings() : null;
-
-    return this.renderWorld(complex.world, {
-      ...options,
-      bindings
-    });
-  }
-
-  /**
    * Format entity type for display
    * @param {string} type - Raw type code
    * @param {string} moleculeType - Type of molecule ('protein', 'dna', 'rna', 'atp')
@@ -889,34 +869,6 @@ class ASCIIRenderer {
     }
   }
 
-  /**
-   * Render signal states on canvas (queries World)
-   * This is kept for backward compatibility but internally uses renderSignalsFromData
-   * @param {Map} canvas - The rendering canvas
-   * @param {World} world - The ECS World
-   * @param {Array} entities - All entities in the complex
-   * @param {Object} COMPONENT_TYPES - Component type constants
-   */
-  static renderSignalsOnCanvas(canvas, world, entities, COMPONENT_TYPES) {
-    // Query signal states from World
-    const signals = new Map();
-    const signaledEntityIds = world.query([COMPONENT_TYPES.SIGNAL, COMPONENT_TYPES.RESIDUE]);
-
-    for (const entityId of signaledEntityIds) {
-      const signal = world.getComponent(entityId, COMPONENT_TYPES.SIGNAL);
-      const residue = world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
-
-      signals.set(residue.index, {
-        on: signal.on,
-        source: signal.source,
-        strength: signal.strength
-      });
-    }
-
-    // Delegate to pure function
-    this.renderSignalsFromData(canvas, entities, signals);
-  }
-
   // ===========================================================================
   // LAYERED RENDERING SYSTEM
   // ===========================================================================
@@ -939,6 +891,7 @@ class ASCIIRenderer {
       enableHeatmap = false,
       heatmapOptions = {},
       enableResidues = true,
+      enableLabels = true,
       enableBackbone = true,
       enableIntraBonds = true,
       enableInterBonds = true,
@@ -964,32 +917,39 @@ class ASCIIRenderer {
       { zIndex: 1, dense: false, enabled: enableResidues }
     ));
 
-    // Layer 2: Backbone (sparse)
+    // Layer 2: Labels (N-/C, 5'-/3' markers)
+    manager.addLayer(new Layer(
+      'labels',
+      renderLabelsLayer,
+      { zIndex: 2, dense: false, enabled: enableLabels }
+    ));
+
+    // Layer 3: Backbone (sparse)
     manager.addLayer(new Layer(
       'backbone',
       renderBackboneLayer,
-      { zIndex: 2, dense: false, enabled: enableBackbone }
+      { zIndex: 3, dense: false, enabled: enableBackbone }
     ));
 
-    // Layer 3: Intramolecular bonds (sparse)
+    // Layer 4: Intramolecular bonds (sparse)
     manager.addLayer(new Layer(
       'intramolecular_bonds',
       renderIntraBondsLayer,
-      { zIndex: 3, dense: false, enabled: enableIntraBonds }
+      { zIndex: 4, dense: false, enabled: enableIntraBonds }
     ));
 
-    // Layer 4: Intermolecular bonds (sparse)
+    // Layer 5: Intermolecular bonds (sparse)
     manager.addLayer(new Layer(
       'intermolecular_bonds',
       renderInterBondsLayer,
-      { zIndex: 4, dense: false, enabled: enableInterBonds }
+      { zIndex: 5, dense: false, enabled: enableInterBonds }
     ));
 
-    // Layer 5: Signals (sparse, highest z-index)
+    // Layer 6: Signals (sparse, highest z-index)
     manager.addLayer(new Layer(
       'signals',
       (entityData, worldState) => renderSignalsLayer(entityData, worldState, { useInversion: useSignalInversion }),
-      { zIndex: 5, dense: false, enabled: enableSignals }
+      { zIndex: 6, dense: false, enabled: enableSignals }
     ));
 
     return manager;

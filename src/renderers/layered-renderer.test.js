@@ -22,7 +22,6 @@ describe('Layer', () => {
     expect(layer.name).toBe('test');
     expect(layer.renderFn).toBe(renderFn);
     expect(layer.zIndex).toBe(0);
-    expect(layer.dense).toBe(false);
     expect(layer.enabled).toBe(true);
   });
 
@@ -30,12 +29,10 @@ describe('Layer', () => {
     const renderFn = () => new Map();
     const layer = new Layer('test', renderFn, {
       zIndex: 5,
-      dense: true,
       enabled: false
     });
 
     expect(layer.zIndex).toBe(5);
-    expect(layer.dense).toBe(true);
     expect(layer.enabled).toBe(false);
   });
 
@@ -210,14 +207,14 @@ describe('LayerManager', () => {
   it('should get layer info', () => {
     const manager = new LayerManager();
 
-    manager.addLayer(new Layer('layer1', () => new Map(), { zIndex: 1, dense: false }));
-    manager.addLayer(new Layer('layer2', () => new Map(), { zIndex: 2, dense: true, enabled: false }));
+    manager.addLayer(new Layer('layer1', () => new Map(), { zIndex: 1 }));
+    manager.addLayer(new Layer('layer2', () => new Map(), { zIndex: 2, enabled: false }));
 
     const info = manager.getLayerInfo();
 
     expect(info).toEqual([
-      { name: 'layer1', zIndex: 1, enabled: true, dense: false },
-      { name: 'layer2', zIndex: 2, enabled: false, dense: true }
+      { name: 'layer1', zIndex: 1, enabled: true },
+      { name: 'layer2', zIndex: 2, enabled: false }
     ]);
   });
 });
@@ -265,22 +262,22 @@ describe('composeLayers', () => {
     expect(canvas.get('0,2')).toEqual({ char: 'B' }); // From layer1
   });
 
-  it('should compose dense layer over sparse layers', () => {
-    // Layer 0 (sparse)
+  it('should compose higher z-index layers over lower layers', () => {
+    // Layer 0
     const layer0Canvas = new Map();
     layer0Canvas.set('0,0', { char: 'A' });
 
-    // Layer 1 (dense) - fills all positions
+    // Layer 1 - higher z-index overwrites lower
     const layer1Canvas = new Map();
     layer1Canvas.set('0,0', { char: 'X' });
     layer1Canvas.set('0,1', { char: 'Y' });
 
     const layer0 = new Layer('layer0', () => layer0Canvas, { zIndex: 0 });
-    const layer1 = new Layer('layer1', () => layer1Canvas, { zIndex: 1, dense: true });
+    const layer1 = new Layer('layer1', () => layer1Canvas, { zIndex: 1 });
 
     const canvas = composeLayers([layer0, layer1], [], {});
 
-    // Dense layer overwrites everything
+    // Higher z-index layer overwrites lower
     expect(canvas.get('0,0')).toEqual({ char: 'X' });
     expect(canvas.get('0,1')).toEqual({ char: 'Y' });
   });

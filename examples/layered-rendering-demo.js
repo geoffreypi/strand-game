@@ -2,239 +2,200 @@
 /**
  * Layered Rendering System Demo
  *
- * Demonstrates the flexible layer-based rendering architecture.
- * Shows how to toggle, reorder, and customize rendering layers.
+ * Demonstrates the layer-based rendering system by systematically
+ * showing what each layer contributes to the final rendering.
  */
 
 import ASCIIRenderer from '../src/renderers/ascii-renderer.js';
 import { Molecule } from '../src/core/molecule.js';
 import { Complex } from '../src/core/complex.js';
 
-// Helper function to create a protein complex
-function createProteinComplex(sequence, options = {}) {
-  return Complex.fromProtein(sequence, options);
+console.log('='.repeat(70));
+console.log('LAYERED RENDERING SYSTEM DEMO');
+console.log('='.repeat(70));
+console.log();
+
+// ===========================================================================
+// Main Example: Step Through Each Layer
+// ===========================================================================
+
+console.log('='.repeat(70));
+console.log('EXAMPLE 1: Systematic Layer Breakdown');
+console.log('='.repeat(70));
+console.log();
+
+// Create protein with signal-capable and non-signaling residues
+// SIG and PSH can signal, STR cannot
+const protein = Complex.fromProtein('SIG-PSH-STR-SIG', { bends: [] });
+
+const sigEntities = protein.world.query(['Position', 'Residue', 'Signal']);
+let sigCount = 0;
+for (const entityId of sigEntities) {
+  const residue = protein.world.getComponent(entityId, 'Residue');
+  if (residue.type === 'SIG') {
+    sigCount++;
+    if (sigCount === 2) {  // Activate last SIG only
+      const signal = protein.world.getComponent(entityId, 'Signal');
+      signal.on = true;
+    }
+  }
 }
 
-// ===========================================================================
-// Example 1: Basic Layered Rendering (all layers enabled)
-// ===========================================================================
-
-console.log('='.repeat(70));
-console.log('Example 1: Basic Layered Rendering (All Layers)');
-console.log('='.repeat(70));
-
-const protein1 = createProteinComplex('SIG-AND-PSH', { bends: [] });
-const rendering1 = ASCIIRenderer.renderComplexLayered(protein1);
-
-console.log(rendering1);
+console.log('Protein: SIG-PSH-STR-SIG (last SIG activated, STR cannot signal)');
 console.log();
 
-// ===========================================================================
-// Example 2: Toggle Layers On/Off
-// ===========================================================================
-
-console.log('='.repeat(70));
-console.log('Example 2: Selective Layer Rendering');
-console.log('='.repeat(70));
-
-// Disable backbone layer (no dashes)
-const rendering2a = ASCIIRenderer.renderComplexLayered(protein1, {
-  layerOptions: {
-    enableBackbone: false
-  }
-});
-
-console.log('Without backbone layer (no dashes):');
-console.log(rendering2a);
+console.log('ALL LAYERS:');
+console.log(ASCIIRenderer.renderComplexLayered(protein, { useColor: true }));
 console.log();
 
-// Only residues (no connectors at all)
-const rendering2b = ASCIIRenderer.renderComplexLayered(protein1, {
+console.log('LAYER 1 - Residues only (the amino acid codes):');
+console.log(ASCIIRenderer.renderComplexLayered(protein, {
+  useColor: true,
   layerOptions: {
+    enableLabels: false,
     enableBackbone: false,
-    enableIntraBonds: false,
+    enableInterBonds: false,
     enableSignals: false
   }
-});
-
-console.log('Only residues layer:');
-console.log(rendering2b);
+}));
 console.log();
 
-// ===========================================================================
-// Example 3: Reordering Layers Dynamically
-// ===========================================================================
-
-console.log('='.repeat(70));
-console.log('Example 3: Dynamic Layer Reordering');
-console.log('='.repeat(70));
-
-// Create a layer manager
-const layerManager = ASCIIRenderer.createDefaultLayerManager();
-
-// Print initial layer order
-console.log('Initial layer configuration:');
-layerManager.getLayerInfo().forEach(info => {
-  console.log(`  ${info.name}: z=${info.zIndex}, enabled=${info.enabled}, dense=${info.dense}`);
-});
-console.log();
-
-// Move signals layer to the background (lowest z-index)
-layerManager.setLayerZIndex('signals', -1);
-
-console.log('After moving signals to background (z=-1):');
-layerManager.getLayerInfo().forEach(info => {
-  console.log(`  ${info.name}: z=${info.zIndex}, enabled=${info.enabled}`);
-});
-console.log();
-
-// ===========================================================================
-// Example 4: Custom Layer Manager
-// ===========================================================================
-
-console.log('='.repeat(70));
-console.log('Example 4: Custom Layer Configuration');
-console.log('='.repeat(70));
-
-import { LayerManager, Layer } from '../src/renderers/layered-renderer.js';
-import {
-  renderResiduesLayer,
-  renderSignalsLayer
-} from '../src/renderers/layer-renderers.js';
-
-// Create custom layer manager with only 2 layers
-const customManager = new LayerManager();
-
-customManager.addLayer(new Layer(
-  'residues',
-  renderResiduesLayer,
-  { zIndex: 0, dense: false }
-));
-
-customManager.addLayer(new Layer(
-  'signals',
-  (entityData, worldState) => renderSignalsLayer(entityData, worldState, { useInversion: true }),
-  { zIndex: 1, dense: false }
-));
-
-// Activate a signal in the protein
-const protein2 = createProteinComplex('SIG-AND-PSH', { bends: [] });
-
-// Find SIG residue and activate it
-const sigEntities = protein2.world.query(['Position', 'Residue', 'Signal']);
-for (const entityId of sigEntities) {
-  const residue = protein2.world.getComponent(entityId, 'Residue');
-  if (residue.type === 'SIG') {
-    const signal = protein2.world.getComponent(entityId, 'Signal');
-    signal.on = true;
-    signal.source = true;
+console.log('LAYER 2 - Labels only (N-/C directional markers):');
+console.log(ASCIIRenderer.renderComplexLayered(protein, {
+  useColor: true,
+  layerOptions: {
+    enableResidues: false,
+    enableBackbone: false,
+    enableInterBonds: false,
+    enableSignals: false
   }
-}
+}));
+console.log();
 
-const rendering4 = ASCIIRenderer.renderComplexLayered(protein2, {
-  layerManager: customManager
-});
+console.log('LAYER 3 - Backbone connectors only (-, /, \\):');
+console.log(ASCIIRenderer.renderComplexLayered(protein, {
+  useColor: true,
+  layerOptions: {
+    enableResidues: false,
+    enableLabels: false,
+    enableInterBonds: false,
+    enableSignals: false
+  }
+}));
+console.log();
 
-console.log('Custom rendering (residues + inverted signals only):');
-console.log(rendering4);
+console.log('LAYER 5 - Signals only (all signal-capable residues):');
+console.log(ASCIIRenderer.renderComplexLayered(protein, {
+  useColor: true,
+  layerOptions: {
+    enableResidues: false,
+    enableLabels: false,
+    enableBackbone: false,
+    enableInterBonds: false
+  }
+}));
+console.log('(Note: Gap where STR is - it cannot signal. Last SIG inverted as activated)');
+console.log();
+
+console.log('LAYERS 1+2+3 - Residues + Labels + Backbone:');
+console.log(ASCIIRenderer.renderComplexLayered(protein, {
+  useColor: true,
+  layerOptions: {
+    enableInterBonds: false,
+    enableSignals: false
+  }
+}));
+console.log();
+
+console.log('ALL LAYERS - Complete rendering:');
+console.log(ASCIIRenderer.renderComplexLayered(protein, { useColor: true }));
+console.log('(In plain text, both SIG look the same - see color example below)');
 console.log();
 
 // ===========================================================================
-// Example 5: Layer Toggling at Runtime
+// Intermolecular Bonds Example
 // ===========================================================================
 
 console.log('='.repeat(70));
-console.log('Example 5: Runtime Layer Toggling');
+console.log('EXAMPLE 2: Intermolecular Bonds');
 console.log('='.repeat(70));
+console.log();
 
-const toggleManager = ASCIIRenderer.createDefaultLayerManager();
+const complex = new Complex();
+const bindProtein = Molecule.createProtein('STR-BTA');
+const dna = Molecule.createDNA('A');
 
-// Create a protein with a bend to show intramolecular bonds
-const protein3 = createProteinComplex('SIG-AND-PSH-ATR', {
+// Position from test: BTA at (1,0), DNA A at (1,1) - they are adjacent
+complex.addMolecule(bindProtein, { offset: { q: 0, r: 0 } });
+complex.addMolecule(dna, { offset: { q: 1, r: 1 } });
+
+console.log('Protein (STR-BTA) with DNA (A) positioned adjacent:');
+console.log();
+
+console.log('WITHOUT intermolecular bonds layer:');
+console.log(ASCIIRenderer.renderComplexLayered(complex, {
+  useColor: true,
+  layerOptions: {
+    enableInterBonds: false
+  }
+}));
+console.log();
+
+console.log('WITH intermolecular bonds layer (shows + between BTA and <A>):');
+console.log(ASCIIRenderer.renderComplexLayered(complex, { useColor: true }));
+console.log();
+
+// ===========================================================================
+// Backbone with Bends
+// ===========================================================================
+
+console.log('='.repeat(70));
+console.log('EXAMPLE 3: Backbone Layer with Bends');
+console.log('='.repeat(70));
+console.log();
+
+const bentProtein = Complex.fromProtein('SIG-AND-PSH-ATR', {
   bends: [{ position: 1, angle: 60, direction: 'right' }]
 });
 
-console.log('All layers enabled:');
-const rendering5a = ASCIIRenderer.renderComplexLayered(protein3, {
-  layerManager: toggleManager
-});
-console.log(rendering5a);
+console.log('Protein with bend at position 1:');
 console.log();
 
-// Toggle off intramolecular bonds
-toggleManager.toggleLayer('intramolecular_bonds');
-
-console.log('Intramolecular bonds layer disabled:');
-const rendering5b = ASCIIRenderer.renderComplexLayered(protein3, {
-  layerManager: toggleManager
-});
-console.log(rendering5b);
-console.log();
-
-// ===========================================================================
-// Example 6: Color Output (if terminal supports it)
-// ===========================================================================
-
-console.log('='.repeat(70));
-console.log('Example 6: Colored Output (ANSI colors)');
-console.log('='.repeat(70));
-
-// Activate signals for color demonstration
-const protein4 = createProteinComplex('SIG-AND-PSH', { bends: [] });
-
-const sigEntities4 = protein4.world.query(['Position', 'Residue', 'Signal']);
-for (const entityId of sigEntities4) {
-  const residue = protein4.world.getComponent(entityId, 'Residue');
-  if (residue.type === 'SIG') {
-    const signal = protein4.world.getComponent(entityId, 'Signal');
-    signal.on = true;
-  }
-}
-
-const coloredRendering = ASCIIRenderer.renderComplexLayered(protein4, {
+console.log('WITHOUT backbone (no connectors or bend characters):');
+console.log(ASCIIRenderer.renderComplexLayered(bentProtein, {
   useColor: true,
   layerOptions: {
-    useSignalInversion: true  // Use inverted colors for signals
+    enableBackbone: false
   }
-});
+}));
+console.log();
 
-console.log('Rendering with ANSI colors (SIG residue inverted):');
-console.log(coloredRendering);
+console.log('WITH backbone (shows / or \\ for bends):');
+console.log(ASCIIRenderer.renderComplexLayered(bentProtein, { useColor: true }));
 console.log();
 
 // ===========================================================================
-// Example 7: Layer Information and Debugging
+// Color Example - Shows Signal Contrast
 // ===========================================================================
 
 console.log('='.repeat(70));
-console.log('Example 7: Layer Manager Inspection');
+console.log('EXAMPLE 4: ANSI Color Support - Signal Activation Contrast');
 console.log('='.repeat(70));
-
-const inspectManager = ASCIIRenderer.createDefaultLayerManager();
-
-console.log('Available layers:');
-console.log('  Names:', inspectManager.getLayerNames());
 console.log();
 
-console.log('Detailed layer info:');
-const layerInfo = inspectManager.getLayerInfo();
-layerInfo.forEach(info => {
-  console.log(`  ${info.name}:`);
-  console.log(`    z-index: ${info.zIndex}`);
-  console.log(`    enabled: ${info.enabled}`);
-  console.log(`    dense: ${info.dense}`);
-});
+console.log('Plain text (no visual difference between activated/deactivated):');
+console.log(ASCIIRenderer.renderComplexLayered(protein, { useColor: false }));
 console.log();
 
-// Move a layer forward and backward
-console.log('Moving backbone layer forward by 2:');
-inspectManager.moveLayerForward('backbone', 2);
-console.log('  New z-index:', inspectManager.getLayer('backbone').zIndex);
+console.log('With ANSI colors (second SIG inverted - white bg, black fg):');
+console.log(ASCIIRenderer.renderComplexLayered(protein, { useColor: true }));
 console.log();
 
-console.log('Moving backbone layer backward by 1:');
-inspectManager.moveLayerBackward('backbone');
-console.log('  New z-index:', inspectManager.getLayer('backbone').zIndex);
+console.log('Notice the contrast between:');
+console.log('  - First SIG: Normal (deactivated)');
+console.log('  - Second SIG: Inverted colors (activated)');
+console.log();
+console.log('(Signal visualization requires terminal ANSI color support)');
 console.log();
 
 // ===========================================================================
@@ -242,26 +203,35 @@ console.log();
 // ===========================================================================
 
 console.log('='.repeat(70));
-console.log('Layered Rendering System Features:');
+console.log('Summary');
 console.log('='.repeat(70));
 console.log();
-console.log('✓ 6 built-in layers (heatmap, residues, backbone, intramolecular');
-console.log('  bonds, intermolecular bonds, signals)');
-console.log('✓ Toggle layers on/off independently');
-console.log('✓ Reorder layers dynamically (move forward/backward, set z-index)');
-console.log('✓ Custom layer managers for fine control');
-console.log('✓ ANSI color support (24-bit RGB)');
-console.log('✓ Dense and sparse layer composition');
-console.log('✓ Backward compatible with existing renderer');
+console.log('6 Rendering Layers:');
+console.log('  1. Residues - amino acid/nucleotide codes');
+console.log('  2. Labels - N-/C and 5\'-/3\' directional markers');
+console.log('  3. Backbone - connectors (-, /, \\)');
+console.log('  4. Intermolecular bonds - binding indicators (+)');
+console.log('  5. Signals - activation state (inverted colors)');
+console.log('  6. Heatmap - property visualization (optional)');
 console.log();
-
+console.log('Features:');
+console.log('  ✓ Toggle layers on/off independently');
+console.log('  ✓ Reorder layers by z-index');
+console.log('  ✓ ANSI color support (24-bit RGB)');
+console.log('  ✓ Custom layer managers');
+console.log('  ✓ Backward compatible');
+console.log();
 console.log('Usage:');
+console.log('  // All layers');
+console.log('  ASCIIRenderer.renderComplexLayered(complex);');
+console.log();
+console.log('  // Specific layers');
 console.log('  ASCIIRenderer.renderComplexLayered(complex, {');
-console.log('    useColor: true,');
-console.log('    layerOptions: {');
-console.log('      enableHeatmap: false,');
-console.log('      enableBackbone: true,');
-console.log('      useSignalInversion: true');
-console.log('    }');
+console.log('    layerOptions: { enableLabels: false, enableBackbone: false }');
+console.log('  });');
+console.log();
+console.log('  // With colors');
+console.log('  ASCIIRenderer.renderComplexLayered(complex, {');
+console.log('    useColor: true');
 console.log('  });');
 console.log();

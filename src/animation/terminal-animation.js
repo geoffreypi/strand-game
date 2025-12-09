@@ -17,7 +17,7 @@
 
 import ASCIIRenderer from '../renderers/ascii-renderer.js';
 import { calculateFoldEnergy } from '../data/amino-acids.js';
-import { sequenceToHexGrid, getNeighbors } from '../core/hex-layout.js';
+import { getNeighbors } from '../core/hex-layout.js';
 import { buildTransitionMatrix, stepsToAngle, calculateFullEnergy } from '../physics/energy.js';
 import { Complex } from '../core/complex.js';
 import { Molecule } from '../core/molecule.js';
@@ -301,16 +301,11 @@ export class ProteinFoldingAnimation {
       }
     }
 
-    // Use the real ASCII renderer
+    // Use the ECS-based renderer
     let ascii;
     try {
-      if (bends.length === 0) {
-        ascii = ASCIIRenderer.renderProtein(sequenceStr);
-      } else {
-        // For multiple bends, we need to use hexGridToASCII
-        const hexGrid = sequenceToHexGrid(sequenceStr, bends);
-        ascii = ASCIIRenderer.hexGridToASCII(hexGrid, 'N-', '-C');
-      }
+      const complex = Complex.fromProtein(sequenceStr, { bends });
+      ascii = ASCIIRenderer.renderComplexLayered(complex);
     } catch (error) {
       ascii = `Error rendering: ${error.message}`;
     }
@@ -406,15 +401,11 @@ export class ProteinFoldingAnimationSync {
       }
     }
 
-    // Use the real ASCII renderer
+    // Use the ECS-based renderer
     let ascii;
     try {
-      if (bends.length === 0) {
-        ascii = ASCIIRenderer.renderProtein(sequenceStr);
-      } else {
-        const hexGrid = sequenceToHexGrid(sequenceStr, bends);
-        ascii = ASCIIRenderer.hexGridToASCII(hexGrid, 'N-', '-C');
-      }
+      const complex = Complex.fromProtein(sequenceStr, { bends });
+      ascii = ASCIIRenderer.renderComplexLayered(complex);
     } catch (error) {
       ascii = `Error rendering: ${error.message}`;
     }
@@ -622,7 +613,8 @@ export class ProteinFoldingAnimationSync {
     }
 
     try {
-      sequenceToHexGrid(sequenceStr, bends);
+      // Use ECS system to validate - will throw on overlap
+      Complex.fromProtein(sequenceStr, { bends });
       return true;
     } catch (error) {
       if (error.message.includes('Overlap')) {
@@ -944,15 +936,6 @@ async function runComplexDemos() {
         return complex;
       }
     },
-    {
-      name: 'DNA Double Strand Preview',
-      description: 'DNA rendered with the DNA renderer',
-      build: () => {
-        // This one uses the DNA renderer directly, not Complex
-        return null;
-      },
-      customRender: () => ASCIIRenderer.renderDNA('ACGT', 'TGCA')
-    },
   ];
 
   for (const demo of demos) {
@@ -964,7 +947,7 @@ async function runComplexDemos() {
       output = demo.customRender();
     } else {
       const complex = demo.build();
-      output = ASCIIRenderer.renderComplex(complex);
+      output = ASCIIRenderer.renderComplexLayered(complex);
     }
 
     console.log(output);
@@ -1128,8 +1111,8 @@ function renderSignalFrame(frame, frameIndex, totalFrames) {
   lines.push(`${ANSI.DIM}${description}${ANSI.RESET}`);
   lines.push('');
 
-  // Render the complex
-  const asciiRender = ASCIIRenderer.renderComplex(complex);
+  // Render the complex with layered renderer (signals layer at highest priority)
+  const asciiRender = ASCIIRenderer.renderComplexLayered(complex, { useColor: true });
   lines.push(...asciiRender.split('\n'));
   lines.push('');
 
@@ -1216,26 +1199,26 @@ async function runAndGateAnimation() {
 
   // === Frame 1: Protein alone with AND gate ===
   {
-    const complex = Complex.fromProtein('BTA-SIG-AND-SIG-BTG');
+    const complex = Complex.fromProtein('BTA-INP-AND-INP-BTG');
     complex.setSignalConfig(instantConfig);
     const signalResult = complex.computeSignals();
     frames.push({
       title: `Step ${stepNum++}: AND Gate Circuit`,
-      description: 'BTA and BTG are signal sources, AND gate in the middle requires BOTH inputs',
+      description: 'BTA and BTG are signal sources, AND gate needs BOTH INP inputs + ATP',
       complex: cloneComplex(complex),
       signalResult: cloneSignalState(signalResult)
     });
   }
 
   // === Frame 2: DNA-A binds to BTA (left side only) ===
-  const mainComplex = Complex.fromProtein('BTA-SIG-AND-SIG-BTG');
+  const mainComplex = Complex.fromProtein('BTA-INP-AND-INP-BTG');
   mainComplex.setSignalConfig(instantConfig);
   mainComplex.addMolecule(Molecule.createDNA('A'), { offset: { q: 0, r: 1 } });
   let signalResult = mainComplex.computeSignals();
 
   frames.push({
     title: `Step ${stepNum++}: Left input activated`,
-    description: 'DNA-A binds BTA → left SIG turns ON, but AND needs BOTH inputs',
+    description: 'DNA-A binds BTA → left INP turns ON, but AND needs BOTH inputs + ATP',
     complex: cloneComplex(mainComplex),
     signalResult: cloneSignalState(signalResult)
   });
@@ -1246,7 +1229,7 @@ async function runAndGateAnimation() {
 
   frames.push({
     title: `Step ${stepNum++}: Both inputs activated`,
-    description: 'DNA-G binds BTG → right SIG turns ON, AND has both inputs but needs ATP!',
+    description: 'DNA-G binds BTG → both INP inputs ON, AND has both inputs but needs ATP!',
     complex: cloneComplex(mainComplex),
     signalResult: cloneSignalState(signalResult)
   });
@@ -1303,8 +1286,8 @@ function renderAndGateFrame(frame, frameIndex, totalFrames) {
   lines.push(`${ANSI.DIM}${description}${ANSI.RESET}`);
   lines.push('');
 
-  // Render the complex
-  const asciiRender = ASCIIRenderer.renderComplex(complex);
+  // Render the complex with layered renderer (signals layer at highest priority)
+  const asciiRender = ASCIIRenderer.renderComplexLayered(complex, { useColor: true });
   lines.push(...asciiRender.split('\n'));
   lines.push('');
 
