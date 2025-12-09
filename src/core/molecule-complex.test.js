@@ -517,13 +517,15 @@ describe('Complex', () => {
 
     // INPUT: Create from DNA string
     // EXPECTED: Complex with single DNA strand
-    // WHY: Convenience factory
-    test('fromDNA creates single-molecule complex', () => {
+    // WHY: Convenience factory creates double-stranded DNA
+    test('fromDNA creates double-stranded DNA complex', () => {
       const complex = Complex.fromDNA('ACGT');
 
-      expect(complex.molecules.length).toBe(1);
+      expect(complex.molecules.length).toBe(2); // Both strands
       expect(complex.molecules[0].type).toBe('dna');
-      expect(complex.size).toBe(4);
+      expect(complex.molecules[1].type).toBe('dna');
+      expect(complex.size).toBe(8); // 4 bases × 2 strands
+      expect(complex.molecules[1].sequence.join('')).toBe('TGCA'); // Auto-generated complement
     });
   });
 

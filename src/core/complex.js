@@ -40,6 +40,7 @@ import {
   createIndexManagerComponent
 } from '../ecs/components.js';
 import { canSignal } from '../data/amino-acids.js';
+import { BasePairingComponent } from '../ecs/components/basePairingComponent.js';
 
 /**
  * Entry for a molecule in a complex
@@ -882,19 +883,137 @@ export class Complex {
   }
 
   /**
-   * Create a Complex with a single DNA strand
-   * @param {string} sequence
-   * @param {Object} options
+   * Create a Complex with DNA (single or double-stranded)
+   * @param {string} sequence - First DNA strand
+   * @param {string|Object} complementOrOptions - Second strand, or options if single-stranded
+   * @param {Object} options - Options (if complement is provided)
    * @returns {Complex}
+   *
+   * Usage:
+   * - fromDNA('ACGT') - Single strand, auto-generate complement
+   * - fromDNA('ACGT', 'TGCA') - Double strand with explicit complement
+   * - fromDNA('ACGT', {bends: [...]}) - Single strand with options
+   * - fromDNA('ACGT', 'TGCA', {bends: [...]}) - Double strand with options
    */
-  static fromDNA(sequence, options = {}) {
-    const mol = Molecule.createDNA(sequence, options);
+  static fromDNA(sequence, complementOrOptions, options = {}) {
+    // Determine if we have 1 or 2 sequences
+    const isSingleStrand = !complementOrOptions ||
+                           (typeof complementOrOptions === 'object' && !Array.isArray(complementOrOptions));
+    const complement = isSingleStrand ? Complex._generateComplement(sequence) : complementOrOptions;
+    const opts = isSingleStrand ? (complementOrOptions || {}) : options;
+
+    // Create both molecules
+    const strand1 = Molecule.createDNA(sequence, opts);
+    const strand2 = Molecule.createDNA(complement, opts);
+
+    // Create complex and add both strands
     const complex = new Complex();
-    complex.addMolecule(mol, {
-      offset: options.offset,
-      direction: options.direction
+
+    // Add first strand at specified position
+    complex.addMolecule(strand1, {
+      offset: opts.offset || { q: 0, r: 0 },
+      direction: opts.direction || 0
     });
+
+    // Add second strand adjacent (one row below in hex grid)
+    complex.addMolecule(strand2, {
+      offset: opts.offset ? { q: opts.offset.q, r: opts.offset.r + 1 } : { q: 0, r: 1 },
+      direction: opts.direction || 0
+    });
+
+    // Add base pairing components to link the strands
+    complex._addBasePairing(strand1.id, strand2.id);
+
     return complex;
+  }
+
+  /**
+   * Generate complement DNA sequence
+   * @private
+   * @param {string} sequence - DNA sequence (e.g., "ACGT")
+   * @returns {string} Complement sequence (e.g., "TGCA")
+   */
+  static _generateComplement(sequence) {
+    const bases = sequence.includes('-') ? sequence.split('-') : sequence.split('');
+    const complement = bases.map(base => BasePairingComponent.getComplement(base));
+    return sequence.includes('-') ? complement.join('-') : complement.join('');
+  }
+
+  /**
+   * Check if all base pairs in the complex are complementary
+   * Non-blocking validation - returns result without preventing instantiation
+   * @returns {Object} {isComplementary: boolean, errors: Array}
+   */
+  checkComplementarity() {
+    const errors = [];
+
+    // Query all entities with BasePairingComponent
+    const entityIds = this.world.query(['BasePairing', COMPONENT_TYPES.RESIDUE]);
+
+    for (const entityId of entityIds) {
+      const basePairing = this.world.getComponent(entityId, 'BasePairing');
+      const residue1 = this.world.getComponent(entityId, COMPONENT_TYPES.RESIDUE);
+
+      // Get paired entity's residue
+      const residue2 = this.world.getComponent(basePairing.pairedEntityId, COMPONENT_TYPES.RESIDUE);
+
+      // Check if bases are complementary
+      if (!BasePairingComponent.areComplementary(residue1.type, residue2.type)) {
+        errors.push({
+          entity1: entityId,
+          entity2: basePairing.pairedEntityId,
+          base1: residue1.type,
+          base2: residue2.type,
+          expected: BasePairingComponent.getComplement(residue1.type)
+        });
+      }
+    }
+
+    return {
+      isComplementary: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Add base pairing components between two DNA strands
+   * @private
+   * @param {string} strand1Id - First molecule ID
+   * @param {string} strand2Id - Second molecule ID
+   */
+  _addBasePairing(strand1Id, strand2Id) {
+    // Query entities for both strands
+    const strand1Entities = [];
+    const strand2Entities = [];
+
+    const entityIds = this.world.query([COMPONENT_TYPES.POSITION, COMPONENT_TYPES.RESIDUE]);
+    for (const entityId of entityIds) {
+      const position = this.world.getComponent(entityId, COMPONENT_TYPES.POSITION);
+      if (position.moleculeId === strand1Id) {
+        strand1Entities.push({ entityId, ...position });
+      } else if (position.moleculeId === strand2Id) {
+        strand2Entities.push({ entityId, ...position });
+      }
+    }
+
+    // Sort by index to ensure correct pairing
+    strand1Entities.sort((a, b) => a.index - b.index);
+    strand2Entities.sort((a, b) => a.index - b.index);
+
+    // Add BasePairingComponent to each entity
+    const minLength = Math.min(strand1Entities.length, strand2Entities.length);
+    for (let i = 0; i < minLength; i++) {
+      const entity1 = strand1Entities[i];
+      const entity2 = strand2Entities[i];
+
+      // Add component to strand 1 (primary)
+      this.world.addComponent(entity1.entityId, 'BasePairing',
+        new BasePairingComponent(entity2.entityId, true));
+
+      // Add component to strand 2 (complement)
+      this.world.addComponent(entity2.entityId, 'BasePairing',
+        new BasePairingComponent(entity1.entityId, false));
+    }
   }
 }
 

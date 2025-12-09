@@ -918,6 +918,27 @@ describe('Unified Molecular Rendering Tests', () => {
       }).toThrow('Invalid DNA base');
     });
 
+    test('allows non-complementary DNA bases but fails complementarity check', () => {
+      // Non-complementary sequence should be created successfully
+      const complex = Complex.fromDNA('ACGT', 'ACGT'); // ACGT paired with itself (wrong!)
+
+      // Should have 2 molecules
+      expect(complex.molecules.length).toBe(2);
+
+      // But complementarity check should fail
+      const result = complex.checkComplementarity();
+      expect(result.isComplementary).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    test('complementary DNA passes complementarity check', () => {
+      const complex = Complex.fromDNA('ACGT', 'TGCA'); // Correct complement
+
+      const result = complex.checkComplementarity();
+      expect(result.isComplementary).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
     test('renders RNA with bend using wrapped base notation', () => {
       const sequence = 'ACGU';
       const bends = [{ position: 1, angle: 60, direction: 'right' }];
